@@ -91,4 +91,4 @@ class DummyAgent(CaptureAgent):
     return random.choice(actions)
 
   def testGitLab(self):
-    return 1
+    return 100
