@@ -72,6 +72,14 @@ class ReflexCaptureAgent(CaptureAgent):
         else:
             return successor
 
+    def evaluate(self, gameState, action):
+        """
+        Computes a linear combination of features and feature weights
+        """
+        features = self.getFeatures(gameState, action)
+        weights = self.getWeights(gameState, action)
+        return features * weights
+
 
 
 
@@ -196,18 +204,13 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     could be like.  It is not the best or only way to make
     such an agent.
     """
-    def evaluate(self, gameState, action):
-        """
-        Computes a linear combination of features and feature weights
-        """
-        features = self.getFeatures(gameState, action)
-        weights = self.getWeights(gameState, action)
-        return features * weights
-
     def getFeatures(self, gameState, action):
+
+        # initial features
         features = util.Counter()
         successor = self.getSuccessor(gameState, action)
 
+        # get our positions
         myState = successor.getAgentState(self.index)
         myPos = myState.getPosition()
 
@@ -217,11 +220,32 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
         # Computes distance to invaders we can see
         enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+
         invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
         features['numInvaders'] = len(invaders)
         if len(invaders) > 0:
             dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
             features['invaderDistance'] = min(dists)
+
+        # get the distance where the food lost
+        if not self.foodLostPosition()  == None:
+            food = self.foodLostPosition()
+            if 0 < len(food) < 2:
+                food = food[0]
+                minDistance = self.getMazeDistance(myPos, food)
+                features['lostFoodDistance'] = minDistance
+
+
+
+        # get the distance to enemy
+        enemyDistance = self.enemyDist(successor)
+        if(enemyDistance <= 5):
+            features['danger'] = 1
+            if(enemyDistance <= 1 and self.ScaredTimer(successor) > 0):
+                features['danger'] = -1
+        else:
+            features['danger'] = 0
+
 
         if action == Directions.STOP: features['stop'] = 1
         rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
@@ -230,7 +254,74 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         return features
 
     def getWeights(self, gameState, action):
-        return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2}
+        return {'numInvaders': -1, 'onDefense': 1, 'invaderDistance': -1, 'stop': -1, 'reverse': -1, 'danger': 1
+            , 'lostFoodDistance': -1}
+
+
+    def get_enemy(self, gameState):
+        enemyPos = []
+        enemies = self.getOpponents(gameState)
+        for enemy in enemies:
+            pos = gameState.getAgentPosition(enemy)
+            if pos != None:
+                enemyPos.append((enemy,pos))
+
+        return enemyPos
+
+
+    # Find which enemy is the closest
+    def enemyDist(self, gameState):
+        pos = self.get_enemy(gameState)
+        minDist = None
+        if len(pos) > 0:
+            minDist = 6
+            myPos = gameState.getAgentPosition(self.index)
+            for i, p in pos:
+                dist = self.getMazeDistance(p, myPos)
+                if dist < minDist:
+                    minDist = dist
+        return minDist
+
+    # How much longer is the ghost scared?
+    def ScaredTimer(self, gameState):
+        return gameState.getAgentState(self.index).scaredTimer
+
+
+    def foodLostPosition(self):
+        currentState = self.getCurrentObservation()
+        previousState = self.getPreviousObservation()
+        currentFood = self.getFoodYouAreDefending(currentState)
+        previousFood = None
+        if previousState != None:
+            previousFood = self.getFoodYouAreDefending(previousState)
+            if not currentFood == previousFood:
+                food = self.findLostFood(currentFood, previousFood)
+                return food
+
+
+    def findLostFood(self, current, previous):
+
+        list_curr = []
+        list_pre = []
+        foodPos = []
+        for i in current:
+            list_curr.append(i)
+            # list_curr.reverse()
+        for i in previous:
+            list_pre.append(i)
+            # list_pre.reverse()
+
+        for i in range (len(list_pre)):
+            if not list_pre[i] == list_curr[i]:
+                for j in range(len(list_curr[i])):
+                    if not list_curr[i][j] == list_pre[i][j]:
+                        foodPos.append((i,j))
+
+                        # only get the first element
+                        # foodPos = foodPos[0]
+                        # print foodPos
+
+        return foodPos
 
     def chooseAction(self, gameState):
         """
