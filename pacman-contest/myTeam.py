@@ -89,6 +89,10 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         """
         Picks among the actions with the highest Q(s,a).
         """
+        print "agent:", self
+        print "agent index", self.index
+        return MCTsearch(gameState, self, depth=5)
+        '''
         actions = gameState.getLegalActions(self.index)
         actions.remove(Directions.STOP)
         gs = []
@@ -116,6 +120,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             return bestAction
 
         return random.choice(bestActions)
+        '''
 
     def evl(self, gameState):
         """
@@ -358,7 +363,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 ##########
 
 class MCTree:
-    def __init__(self, gameState, ancestor=None, agentindex=0):
+    def __init__(self, gameState, ancestor=None, agent=None):
         self.gameState = gameState
         self.subtrees = {}
         # self.subtreesCounter = {}
@@ -366,7 +371,8 @@ class MCTree:
         self.depth = 0
         self.visited = 0
         self.score = 0
-        self.agentindex = agentindex
+        self.agent = agent
+        self.agentindex = agent.index
 
         if ancestor is not None:
             self.depth = ancestor.depth + 1
@@ -382,7 +388,7 @@ class MCTree:
         # print "Expanding..."
         if len(self.subtrees) == 0:
             for action in self.gameState.getLegalActions(self.agentindex):
-                self.subtrees[action] = MCTree(self.gameState.generateSuccessor(self.agentindex, action), self, self.agentindex)
+                self.subtrees[action] = MCTree(self.gameState.generateSuccessor(self.agentindex, action), self, self.agent)
             print "expanded tree:", self
                 # self.subtreesCounter[action] = 0
             # print "Expanded"
@@ -405,7 +411,7 @@ class MCTree:
             if self.subtrees[action].visited == 0:
                 print "Tree policy returning new:", action
                 return action
-            uct = evl(self.gameState.generateSuccessor(self.agentindex, action)) + 2*CP* sqrt(2*log(self.visited)/self.subtrees[action].visited)
+            uct = self.agent.evl(self.gameState.generateSuccessor(self.agentindex, action)) + 2*CP* sqrt(2*log(self.visited)/self.subtrees[action].visited)
             if uct >= maxQ:
                 maxQ = uct
                 maxQaction = action
@@ -428,7 +434,9 @@ class MCTree:
 
 
 
-def random_simulation(gameState, agentindex, depth):
+def random_simulation(gameState, agent, depth):
+        print "agent in simulation", agent
+        agentindex = agent.index
         if depth > 0:
             actions = gameState.getLegalActions(agentindex)
             reverse_direction = Directions.REVERSE[gameState.getAgentState(agentindex).getDirection()]
@@ -443,14 +451,14 @@ def random_simulation(gameState, agentindex, depth):
                 # print "Action taken:", action
             else:
                 action = actions[0]
-            random_simulation(gameState.generateSuccessor(agentindex, action), agentindex, depth - 1)
-        return evl(gameState)
+            random_simulation(gameState.generateSuccessor(agentindex, action), agent, depth - 1)
+        return agent.evl(gameState)
 
 
-def MCTsearch(gameState, agentindex, depth):
+def MCTsearch(gameState, agent, depth):
     start_time = time.time()
     print "Starting Search time: ", start_time
-    root = MCTree(gameState, None, agentindex)
+    root = MCTree(gameState, None, agent)
     root.expand()
 
     while time.time() - start_time < 0.08:  # budget time
@@ -466,7 +474,7 @@ def MCTsearch(gameState, agentindex, depth):
             # print "expanded tree: ", tree
             action = tree.tree_policy()
             tree = tree.subtrees[action]
-        simulated_score = random_simulation(tree.gameState, agentindex, depth)
+        simulated_score = random_simulation(tree.gameState, agent, depth)
         print "simulated score:", simulated_score
         tree.backprop(simulated_score)
         print "After backprop, root:", root
@@ -488,15 +496,15 @@ def MCTsearch(gameState, agentindex, depth):
     return maxQaction
 
 
+#
+# def evl(gameState):
+#     value = random.uniform(0,1)
+#     # print "random value:", value
+#     return value
 
-def evl(gameState):
-    value = random.uniform(0,1)
-    # print "random value:", value
-    return value
 
-
-
-class myoffensiveagent(baselineTeam.ReflexCaptureAgent):
-    def chooseAction(self, gameState):
-        return MCTsearch(gameState, self.index, 5)
+#
+# class myoffensiveagent(baselineTeam.ReflexCaptureAgent):
+#     def chooseAction(self, gameState):
+#         return MCTsearch(gameState, self.index, 5)
 
