@@ -56,8 +56,8 @@ class ReflexCaptureAgent(CaptureAgent):
         for i in range(1, gameState.data.layout.height - 1):
             if not gameState.hasWall(centralX, i):
                 self.boundary.append((centralX, i))
-        self.weights = {'score': 30, 'DisToNearestFood': -5, 'disToGhost': 50, 'disToCapsule': -55, 'dots': 50,
-                        'disToBoundary': -50}
+        self.weights = {'score': 0, 'DisToNearestFood': 0, 'disToGhost': 0, 'disToCapsule': 0, 'dots': 0,
+                   'disToBoundary': 0}
 
 
     def getSuccessor(self, gameState, action):
@@ -103,7 +103,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             self.updateWeights(gameState,action)
             return action
 
-        maxQ = -10000
+        maxQ = -float("inf")
+        maxQaction = None
         for action in actions:
             qval = self.evl(self.getSuccessor(gameState,action))
             if qval >= maxQ:
@@ -222,15 +223,15 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         return features
 
     def getWeights(self, gameState):
-        weights = {'score': 30, 'DisToNearestFood': -25, 'disToGhost': 50, 'disToCapsule': -55, 'dots': 50,
-                   'disToBoundary': -50}
+        # weights = {'score': 0, 'DisToNearestFood': 0, 'disToGhost': 0, 'disToCapsule': 0, 'dots': 0,
+        #            'disToBoundary': 0}
         #
         # enemies = []
         # for e in self.getOpponents(gameState):
         #     enemyState = gameState.getAgentState(e)
         #     if not enemyState.isPacman and not enemyState.getPosition() is None:
         #         enemies.append(enemyState)
-        return weights
+        return self.weights
 
     def getMaxQ(self, gameState):
         Qvalue = []
