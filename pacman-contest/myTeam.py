@@ -209,6 +209,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     could be like.  It is not the best or only way to make
     such an agent.
     """
+    foodLost = float
     def getFeatures(self, gameState, action):
 
         # initial features
@@ -232,16 +233,6 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
             dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
             features['invaderDistance'] = min(dists)
 
-        # get the distance where the food lost
-        if not self.foodLostPosition()  == None:
-            food = self.foodLostPosition()
-            if 0 < len(food) < 2:
-                food = food[0]
-                minDistance = self.getMazeDistance(myPos, food)
-                features['lostFoodDistance'] = minDistance
-
-
-
         # get the distance to enemy
         enemyDistance = self.enemyDist(successor)
         if(enemyDistance <= 5):
@@ -251,18 +242,26 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         else:
             features['danger'] = 0
 
-
         if action == Directions.STOP: features['stop'] = 1
         rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
         if action == rev: features['reverse'] = 1
 
+        # get the distance where the food lost
+        if not self.foodLostPosition()  == None:
+            food = self.foodLostPosition()
+            if 0 < len(food) < 3:
+                food = food[0]
+                minDistance = self.getMazeDistance(myPos, food)
+                self.foodLost = minDistance
+                features['lostFoodDistance'] = minDistance
+
         return features
 
     def getWeights(self, gameState, action):
-        return {'numInvaders': -1, 'onDefense': 1, 'invaderDistance': -1, 'stop': -1, 'reverse': -1, 'danger': 1
-            , 'lostFoodDistance': -1}
+        return {'numInvaders': -100, 'onDefense': 1, 'invaderDistance': -100, 'stop': -1, 'reverse': -1, 'danger': 1
+            , 'lostFoodDistance': -10}
 
-
+    # return a list of (x,y), shows the enemies positions
     def get_enemy(self, gameState):
         enemyPos = []
         enemies = self.getOpponents(gameState)
@@ -322,10 +321,6 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
                     if not list_curr[i][j] == list_pre[i][j]:
                         foodPos.append((i,j))
 
-                        # only get the first element
-                        # foodPos = foodPos[0]
-                        # print foodPos
-
         return foodPos
 
     def chooseAction(self, gameState):
@@ -344,7 +339,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
         foodLeft = len(self.getFood(gameState).asList())
 
-        if foodLeft <= 2:
+        if foodLeft <= 0:
             bestDist = 9999
             for action in actions:
                 successor = self.getSuccessor(gameState, action)
