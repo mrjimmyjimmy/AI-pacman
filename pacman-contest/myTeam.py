@@ -88,7 +88,6 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         """
         Picks among the actions with the highest Q(s,a).
         """
-
         epislon = 0.2   # the chanse to randomly choose an action - going to 0 at last
 
         print "agent:", self
