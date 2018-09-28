@@ -228,6 +228,24 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         #         enemies.append(enemyState)
         return weights
 
+    def getMaxQ(self, gameState):
+        Qvalue = []
+        actions = gameState.getLegalActions(self.index)
+        for a in actions:
+            nextState = gameState.generateSuccessor(a)
+            Qvalue.append(self.evl(nextState))
+        return max(Qvalue)
+
+    def updateWeights(self, gameState, action):
+        alpha = 0.2
+        discount = 0.8
+        nextState = gameState.generateSuccessor(action)
+        features = self.getFeatures(nextState)
+        for f in features:
+            self.weights[f] = self.weights[f] + alpha * (
+                    self.getReward(gameState, action) + discount * self.getMaxQ(nextState) - self.evl(gameState)) * \
+                              features[f]
+
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
     """
