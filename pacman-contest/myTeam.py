@@ -97,8 +97,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         for i in range(1, gameState.data.layout.height - 1):
             if not gameState.hasWall(centralX, i):
                 self.boundary.append((centralX, i))
-        self.weights = {'score': 0, 'DisToNearestFood': 0, 'disToGhost': 0, 'disToCapsule': 0, 'dots': 0,
-                   'disToBoundary': 0}
+        self.weights = {'score': 0, 'DisToNearestFood': 0, 'disToGhost': 0, 'disToCapsule': 0, 'stake':0}
         # self.weights = {'score': 0, 'DisToNearestFood': -5, 'disToGhost': 50, 'disToCapsule': -55, 'dots': 50,
         #            'disToBoundary': -50}
 
@@ -230,12 +229,17 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                 dis.append(self.getMazeDistance(agentPosition, c))
             features['disToCapsule'] = min(dis)
         # ---------------------feature 5: carrying----------------
-        features['dots'] = gameState.getAgentState(self.index).numCarrying
+        # features['dots'] = gameState.getAgentState(self.index).numCarrying
+
+        dots = gameState.getAgentState(self.index).numCarrying
         # ---------------------feature 6: dis to boundary----------------
         disToBoundary = 99999
         for a in range(len(self.boundary)):
             disToBoundary = min(disToBoundary, self.getMazeDistance(agentPosition, self.boundary[a]))
-        features['disToBoundary'] = disToBoundary
+        # features['disToBoundary'] = disToBoundary
+
+        features['stake'] = disToBoundary*dots
+
         # ---------------------feature 7: dis to opponent's attackers----------------
         #  need more work on this feature
 
@@ -261,7 +265,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         return max(Qvalue)
 
     def updateWeights(self, gameState, action):
-        alpha = 0.05
+        alpha = 0.001
         discount = 0.8
         nextState = self.getSuccessor(gameState,action)
         features = self.getFeatures(nextState)
