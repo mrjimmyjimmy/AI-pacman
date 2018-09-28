@@ -56,7 +56,8 @@ class ReflexCaptureAgent(CaptureAgent):
         for i in range(1, gameState.data.layout.height - 1):
             if not gameState.hasWall(centralX, i):
                 self.boundary.append((centralX, i))
-
+        self.weights = {'score': 30, 'DisToNearestFood': -5, 'disToGhost': 50, 'disToCapsule': -55, 'dots': 50,
+                        'disToBoundary': -50}
 
 
     def getSuccessor(self, gameState, action):
@@ -104,7 +105,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
         maxQ = -10000
         for action in actions:
-            qval = self.evl(gameState.generateSuccessor(action))
+            qval = self.evl(self.getSuccessor(gameState,action))
             if qval >= maxQ:
                 maxQaction = action
         self.updateWeights(gameState, maxQaction)
@@ -221,7 +222,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         return features
 
     def getWeights(self, gameState):
-        weights = {'score': 30, 'DisToNearestFood': -5, 'disToGhost': 50, 'disToCapsule': -55, 'dots': 50,
+        weights = {'score': 30, 'DisToNearestFood': -25, 'disToGhost': 50, 'disToCapsule': -55, 'dots': 50,
                    'disToBoundary': -50}
         #
         # enemies = []
@@ -235,19 +236,20 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         Qvalue = []
         actions = gameState.getLegalActions(self.index)
         for a in actions:
-            nextState = gameState.generateSuccessor(a)
+            nextState = self.getSuccessor(gameState,a)
             Qvalue.append(self.evl(nextState))
         return max(Qvalue)
 
     def updateWeights(self, gameState, action):
         alpha = 0.2
         discount = 0.8
-        nextState = gameState.generateSuccessor(action)
+        nextState = self.getSuccessor(gameState,action)
         features = self.getFeatures(nextState)
         for f in features:
             self.weights[f] = self.weights[f] + alpha * (
                     self.getReward(gameState, action) + discount * self.getMaxQ(nextState) - self.evl(gameState)) * \
                               features[f]
+            print f, self.weights[f]
 
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
