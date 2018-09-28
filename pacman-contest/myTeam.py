@@ -98,13 +98,16 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         actions.remove(Directions.STOP)
 
         if util.flipCoin(epislon):
-            return random.choice(actions)
+            action = random.choice(actions)
+            self.updateWeights(gameState,action)
+            return action
 
         maxQ = -10000
         for action in actions:
             qval = self.evl(gameState.generateSuccessor(action))
             if qval >= maxQ:
                 maxQaction = action
+        self.updateWeights(gameState, maxQaction)
         return maxQaction
 
     def getReward(self, gameState, action):
