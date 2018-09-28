@@ -1,5 +1,4 @@
 
-
 from captureAgents import CaptureAgent
 import distanceCalculator
 import random, time, util
@@ -107,6 +106,47 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             if qval >= maxQ:
                 maxQaction = action
         return maxQaction
+
+    def getReward(self, gameState, action):
+        reward = 0
+        nextState = self.getSuccessor(gameState, action)
+        score = nextState.getScore() - gameState.getScore()
+        stepCost = -0.5
+        foodReward = 0.8
+        disToGhost = self.disToNearestGhost(gameState)
+        food = self.getFood(gameState)
+        food2 = self.getFood(nextState)
+        eat = food != food2
+        if eat:
+            reward += foodReward
+        if disToGhost <= 1:
+            reward += -5
+        return reward + stepCost + score
+
+    def disToNearestGhost(self, gameState):
+        agentPosition = gameState.getAgentState(self.index).getPosition()
+        enemies = []
+        for e in self.getOpponents(gameState):
+            enemyState = gameState.getAgentState(e)
+            if not enemyState.isPacman and not enemyState.getPosition() is None:
+                enemies.append(enemyState)
+
+        if len(enemies) > 0:
+            toEnemies = []
+            for e in enemies:
+                enemyPos = e.getPosition()
+                toEnemies.append(self.getMazeDistance(agentPosition, enemyPos))
+            # closest = min(position, key=lambda x: self.agent.getMazeDistance(agentPosition, x))
+
+            dis = min(toEnemies)
+            if dis < 6:
+                return dis
+        else:
+            dis = []
+            # dis = (dis.append(gameState.getAgentDistances()[index]) for index in self.agent.getOpponents(gameState))
+            for index in self.getOpponents(gameState):
+                dis.append(gameState.getAgentDistances()[index])
+            return min(dis)
 
 
     def evl(self, gameState):
