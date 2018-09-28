@@ -102,7 +102,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
         maxQ = -10000
         for action in actions:
-            qval = self.evl(gameState.generateSuccessor(action))
+            qval = self.evl(self.getSuccessor(gameState, action))
             if qval >= maxQ:
                 maxQaction = action
         return maxQaction
