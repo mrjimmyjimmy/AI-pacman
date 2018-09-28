@@ -89,38 +89,25 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         """
         Picks among the actions with the highest Q(s,a).
         """
+        epislon = 0.2   # the chanse to randomly choose an action - going to 0 at last
+
         print "agent:", self
         print "agent index", self.index
-        return MCTsearch(gameState, self, depth=5)
-        '''
+        # return MCTsearch(gameState, self, depth=5)
+
         actions = gameState.getLegalActions(self.index)
         actions.remove(Directions.STOP)
-        gs = []
-        for a in actions:
-            gs.append(self.getSuccessor(gameState,a))
-        # You can profile your evaluation time by uncommenting these lines
-        # start = time.time()
-        values = [self.evl(g) for g in gs]
-        # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
 
-        maxValue = max(values)
-        bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+        if util.flipCoin(epislon):
+            return random.choice(actions)
 
-        foodLeft = len(self.getFood(gameState).asList())
+        maxQ = -10000
+        for action in actions:
+            qval = self.evl(gameState.generateSuccessor(action))
+            if qval >= maxQ:
+                maxQaction = action
+        return maxQaction
 
-        if foodLeft <= 2:
-            bestDist = 9999
-            for action in actions:
-                successor = self.getSuccessor(gameState, action)
-                pos2 = successor.getAgentPosition(self.index)
-                dist = self.getMazeDistance(self.start, pos2)
-                if dist < bestDist:
-                    bestAction = action
-                    bestDist = dist
-            return bestAction
-
-        return random.choice(bestActions)
-        '''
 
     def evl(self, gameState):
         """
