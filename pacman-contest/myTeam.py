@@ -95,6 +95,11 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     def registerInitialState(self, gameState):
         CaptureAgent.registerInitialState(self, gameState)
 
+        self.weights = {'score': 1.78261354182, 'DisToNearestFood': -4.41094492098, 'disToGhost':8.17572535548,
+                        'disToCapsule': -1.36111562824, 'dots': 0.877933155097,
+                        'disToBoundary': -2.54156916302,'deadends':-2000}
+        self.distancer.getMazeDistances()
+
         #----------- DEADEND PROCESSING
         self.deadEnds = {}
 
@@ -152,15 +157,17 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
         #-----------
 
-
-        self.weights = {'score': 1.78261354182, 'DisToNearestFood': -4.41094492098, 'disToGhost':8.17572535548,
-                        'disToCapsule': -1.36111562824, 'dots': 0.877933155097,
-                        'disToBoundary': -2.54156916302,'deadends':-2000}
-        self.distancer.getMazeDistances()
+        print "Map width:", gameState.data.layout.width
         if self.red:
             cX = (gameState.data.layout.width - 2) / 2
+            self.deadEnds = dict((((x,y),dir), self.deadEnds[((x,y),dir)]) for ((x,y),dir) in self.deadEnds if x > cX)   #deadend filter
+            print "blue deadends:", self.deadEnds
         else:
             cX = ((gameState.data.layout.width - 2) / 2) + 1
+            self.deadEnds = dict((((x,y),dir), self.deadEnds[((x,y),dir)]) for ((x,y),dir) in self.deadEnds if x < cX)   #deadend filter
+            print "red deadends:", self.deadEnds
+
+
         self.boundary = []
         for i in range(1, gameState.data.layout.height - 1):
             if not gameState.hasWall(cX, i):
@@ -343,7 +350,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         #----------------------feature 8: deadends-----------
         features['deadends'] = 0
         if self.deadEnds.has_key((previous.getAgentState(self.index).getPosition(), action)) and self.deadEnds[(previous.getAgentState(self.index).getPosition(), action)] * 2 > features['disToGhost']:
-            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",agentPosition,action
+            print "!!!!!!!!!!DEADEND WARNING!!!!!!!!!!!!!!",agentPosition,action
             features['deadends'] = 100
         features.divideAll(10)
 
