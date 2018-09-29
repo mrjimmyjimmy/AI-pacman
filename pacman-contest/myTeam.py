@@ -78,81 +78,96 @@ class ReflexCaptureAgent(CaptureAgent):
         return features * weights
 
 
+
+def nextStep((x,y), direction):
+    if direction == Directions.SOUTH:
+        return ((x, y-1), Directions.NORTH)
+    elif direction == Directions.NORTH:
+        return ((x, y+1), Directions.SOUTH)
+    elif direction == Directions.EAST:
+        return ((x+1, y), Directions.WEST)
+    else:
+        return ((x-1,y), Directions.EAST)
+
+
 class OffensiveReflexAgent(ReflexCaptureAgent):
 
     def registerInitialState(self, gameState):
         CaptureAgent.registerInitialState(self, gameState)
 
-        #-----------
-        self.deadEnds = {}
-        # get the feasible position of the map
-        self.feasible = []
-        for i in range(1, gameState.data.layout.height - 1):
-            for j in range(1, gameState.data.layout.width - 1):
-                if not gameState.hasWall(j, i):
-                    self.feasible.append((j, i))
-        # store the crossroads met in the travel
-        crossRoad = util.Queue()
-
-        currentState = gameState
-        # the entrance of the deadend
-        entPos = currentState.getAgentPosition(self.index)
-        entDirection = currentState.getAgentState(self.index).configuration.direction
-        actions = currentState.getLegalActions(self.index)
-        actions.remove(Directions.STOP)
-        for a in actions:
-            crossRoad.push((currentState, a))
-        # if there is still some positions unexplored
-        while not crossRoad.isEmpty():
-            # if it is not a crossroad nor a deadend
-
-            (entState, entDirection) = crossRoad.pop()
-            depth = 0
-            entPos = entState.getAgentState(self.index).getPosition()
-            currentState = entState.generateSuccessor(self.index, entDirection)
-            while True:
-                # get current position
-
-                currentPos = currentState.getAgentState(self.index).getPosition()
-                # get next actions
-                actions = currentState.getLegalActions(self.index)
-                actions.remove(Directions.STOP)
-                currentDirection = currentState.getAgentState(self.index).configuration.direction
-                if currentPos not in self.feasible:
-                    break
-                self.feasible.remove(currentPos)
-                if Directions.REVERSE[currentDirection] in actions:
-                    actions.remove(Directions.REVERSE[currentDirection])
-
-                # deadend
-                if len(actions) == 0:
-                    self.deadEnds[(entPos, entDirection)] = depth + 1
-                    break
-
-                # there is only one direction to move
-                elif len(actions) == 1:
-                    depth = depth + 1
-                    # generate next state
-                    currentState = currentState.generateSuccessor(self.index, actions[0])
-                # meet crossroad
-                else:
-                    # get the successors
-                    for a in actions:
-                        crossRoad.push((currentState, a))
-                    break
-        for i in self.deadEnds.keys():
-            print(i, self.deadEnds[i])
-        # -----------
-
-
         self.weights = {'score': 1.78261354182, 'DisToNearestFood': -4.41094492098, 'disToGhost':8.17572535548,
                         'disToCapsule': -1.36111562824, 'dots': 0.877933155097,
                         'disToBoundary': -2.54156916302,'deadends':-2000}
         self.distancer.getMazeDistances()
+
+        #----------- DEADEND PROCESSING
+        self.deadEnds = {}
+
+        neighbors = {}
+        walkable = []
+        for i in range(1, gameState.data.layout.width - 1):
+            for j in range(1, gameState.data.layout.height - 1):
+                if not gameState.hasWall(i, j):
+                    walkable.append((i, j))
+
+        for (i, j) in walkable:
+            print "walkable ij", (i,j)
+            neighbor = []
+            if (i + 1, j) in walkable:
+                neighbor.append(Directions.EAST)
+                print "Adding neighbour:", (i+1, j)
+            if (i - 1, j) in walkable:
+                neighbor.append(Directions.WEST)
+                print "Adding neighbour:", (i-1, j)
+            if (i, j + 1) in walkable:
+                neighbor.append(Directions.NORTH)
+                print "Adding neighbour:", (i, j+1)
+            if (i, j - 1) in walkable:
+                neighbor.append(Directions.SOUTH)
+                print "Adding neighbour:", (i, j-1)
+
+            neighbors[(i,j)] = neighbor
+
+        for (i,j) in neighbors:
+            if len(neighbors[(i,j)]) >=3:
+                print "ij:", (i,j)
+                print "neighbours:", neighbors[(i,j)]
+                for direction in neighbors[(i,j)]:
+                    (i1, j1), revdir = nextStep((i,j), direction)
+                    nextNeighbor = neighbors[(i1, j1)]
+                    if len(nextNeighbor) >= 3:
+                        continue
+                    elif len(nextNeighbor) == 1:
+                        self.deadEnds[(i,j),direction] = 1
+                    else:
+                        depth = 1
+                        while len(nextNeighbor) == 2:
+                            depth += 1
+                            nextNeighbor.remove(revdir)
+                            (i1, j1), revdir = nextStep((i1, j1), nextNeighbor[0])
+                            nextNeighbor = neighbors[(i1, j1)]
+                            if len(nextNeighbor) >= 3:
+                                continue
+                            elif len(nextNeighbor) == 1:
+                                self.deadEnds[(i, j), direction] = depth
+
+        for deadend in self.deadEnds:
+            print "Correct deadends: ", deadend, self.deadEnds[deadend]
+
+
+        #-----------
+
+        print "Map width:", gameState.data.layout.width
         if self.red:
             cX = (gameState.data.layout.width - 2) / 2
+            self.deadEnds = dict((((x,y),dir), self.deadEnds[((x,y),dir)]) for ((x,y),dir) in self.deadEnds if x > cX)   #deadend filter
+            print "blue deadends:", self.deadEnds
         else:
             cX = ((gameState.data.layout.width - 2) / 2) + 1
+            self.deadEnds = dict((((x,y),dir), self.deadEnds[((x,y),dir)]) for ((x,y),dir) in self.deadEnds if x < cX)   #deadend filter
+            print "red deadends:", self.deadEnds
+
+
         self.boundary = []
         for i in range(1, gameState.data.layout.height - 1):
             if not gameState.hasWall(cX, i):
@@ -202,7 +217,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         disToGhost = self.disToNearestGhost(gameState)
         food = self.getFood(gameState)
         dx, dy = nextState.getAgentState(self.index).getPosition()
-        dots = gameState.getAgentState(self.index).numCarrying * -2
+        dots = gameState.getAgentState(self.index).numCarrying
 
 
         if food[int(dx)][int(dy)]:
@@ -217,7 +232,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
         agentPosition = gameState.getAgentState(self.index).getPosition()
         if self.deadEnds.has_key((agentPosition, action)) and self.deadEnds[(agentPosition, action)] * 2 > disToGhost:
-            reward -= -200
+            reward -= 200
 
         disToBoundary = 99999
         for a in range(len(self.boundary)):
@@ -225,7 +240,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
 
 
-        return reward + stepCost + 20*score - 100*disToBoundary*dots
+        return reward + stepCost + 20*score - 10*disToBoundary*dots
 
     def disToNearestGhost(self, gameState):
         agentPosition = gameState.getAgentState(self.index).getPosition()
@@ -335,7 +350,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         #----------------------feature 8: deadends-----------
         features['deadends'] = 0
         if self.deadEnds.has_key((previous.getAgentState(self.index).getPosition(), action)) and self.deadEnds[(previous.getAgentState(self.index).getPosition(), action)] * 2 > features['disToGhost']:
-            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",agentPosition,action
+            print "!!!!!!!!!!DEADEND WARNING!!!!!!!!!!!!!!",agentPosition,action
             features['deadends'] = 100
         features.divideAll(10)
 
