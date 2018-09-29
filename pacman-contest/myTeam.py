@@ -84,7 +84,64 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         CaptureAgent.registerInitialState(self, gameState)
 
         #-----------
+        self.deadEnds = {}
+        # get the feasible position of the map
+        self.feasible = []
+        for i in range(1, gameState.data.layout.height - 1):
+            for j in range(1, gameState.data.layout.width - 1):
+                if not gameState.hasWall(j, i):
+                    self.feasible.append((j, i))
+        # store the crossroads met in the travel
+        crossRoad = util.Queue()
 
+        currentState = gameState
+        # the entrance of the deadend
+        entPos = currentState.getAgentPosition(self.index)
+        entDirection = currentState.getAgentState(self.index).configuration.direction
+        actions = currentState.getLegalActions(self.index)
+        actions.remove(Directions.STOP)
+        for a in actions:
+            crossRoad.push((currentState, a))
+        # if there is still some positions unexplored
+        while not crossRoad.isEmpty():
+            # if it is not a crossroad nor a deadend
+
+            (entState, entDirection) = crossRoad.pop()
+            depth = 0
+            entPos = entState.getAgentState(self.index).getPosition()
+            currentState = entState.generateSuccessor(self.index, entDirection)
+            while True:
+                # get current position
+
+                currentPos = currentState.getAgentState(self.index).getPosition()
+                # get next actions
+                actions = currentState.getLegalActions(self.index)
+                actions.remove(Directions.STOP)
+                currentDirection = currentState.getAgentState(self.index).configuration.direction
+                if currentPos not in self.feasible:
+                    break
+                self.feasible.remove(currentPos)
+                if Directions.REVERSE[currentDirection] in actions:
+                    actions.remove(Directions.REVERSE[currentDirection])
+
+                # deadend
+                if len(actions) == 0:
+                    self.deadEnds[(entPos, entDirection)] = depth + 1
+                    break
+
+                # there is only one direction to move
+                elif len(actions) == 1:
+                    depth = depth + 1
+                    # generate next state
+                    currentState = currentState.generateSuccessor(self.index, actions[0])
+                # meet crossroad
+                else:
+                    # get the successors
+                    for a in actions:
+                        crossRoad.push((currentState, a))
+                    break
+        for i in self.deadEnds.keys():
+            print(i, self.deadEnds[i])
         # -----------
 
 
@@ -119,7 +176,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
         if util.flipCoin(epislon):
             action = random.choice(actions)
-            # self.updateWeights(gameState, action)
+            self.updateWeights(gameState, action)
             return action
 
         maxQ = -float("inf")
@@ -132,7 +189,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                 maxQ = qval
                 maxQaction = action
 
-        # self.updateWeights(gameState, maxQaction)
+        self.updateWeights(gameState, maxQaction)
         print "so i choose:", maxQaction
         return maxQaction
 
@@ -140,27 +197,35 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         reward = 0
         nextState = self.getSuccessor(gameState, action)
         score = nextState.getScore() - gameState.getScore()
-        stepCost = -0.5
+        stepCost = -0.2
         foodReward = 1
         disToGhost = self.disToNearestGhost(gameState)
         food = self.getFood(gameState)
         dx, dy = nextState.getAgentState(self.index).getPosition()
+        dots = gameState.getAgentState(self.index).numCarrying * -2
+
 
         if food[int(dx)][int(dy)]:
             reward += foodReward
 
         capsule = self.getCapsules(nextState)
-        # if len(capsule) and capsule[0] == (dx, dy):
-        #     reward += 20
+        if len(capsule) and capsule[0] == (dx, dy):
+            reward += 10
 
         if disToGhost <= 2:
-            reward += -10 + gameState.getAgentState(self.index).numCarrying * -1
+            reward += -20 + dots * -2
 
         agentPosition = gameState.getAgentState(self.index).getPosition()
         if self.deadEnds.has_key((agentPosition, action)) and self.deadEnds[(agentPosition, action)] * 2 > disToGhost:
             reward -= -200
 
-        return reward + stepCost + 20*score
+        disToBoundary = 99999
+        for a in range(len(self.boundary)):
+            disToBoundary = min(disToBoundary, self.getMazeDistance(agentPosition, self.boundary[a]))
+
+
+
+        return reward + stepCost + 20*score - 100*disToBoundary*dots
 
     def disToNearestGhost(self, gameState):
         agentPosition = gameState.getAgentState(self.index).getPosition()
@@ -269,8 +334,9 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
         #----------------------feature 8: deadends-----------
         features['deadends'] = 0
-        if self.deadEnds.has_key((agentPosition, action)) and self.deadEnds[(agentPosition, action)] * 2 > features['disToGhost']:
-            features['deadends'] = 1
+        if self.deadEnds.has_key((previous.getAgentState(self.index).getPosition(), action)) and self.deadEnds[(previous.getAgentState(self.index).getPosition(), action)] * 2 > features['disToGhost']:
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",agentPosition,action
+            features['deadends'] = 100
         features.divideAll(10)
 
         return features
