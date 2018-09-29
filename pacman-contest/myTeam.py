@@ -217,7 +217,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         disToGhost = self.disToNearestGhost(gameState)
         food = self.getFood(gameState)
         dx, dy = nextState.getAgentState(self.index).getPosition()
-        dots = gameState.getAgentState(self.index).numCarrying * -2
+        dots = gameState.getAgentState(self.index).numCarrying
 
 
         if food[int(dx)][int(dy)]:
@@ -232,7 +232,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
         agentPosition = gameState.getAgentState(self.index).getPosition()
         if self.deadEnds.has_key((agentPosition, action)) and self.deadEnds[(agentPosition, action)] * 2 > disToGhost:
-            reward -= -200
+            reward -= 200
 
         disToBoundary = 99999
         for a in range(len(self.boundary)):
@@ -240,7 +240,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
 
 
-        return reward + stepCost + 20*score - 100*disToBoundary*dots
+        return reward + stepCost + 20*score - 10*disToBoundary*dots
 
     def disToNearestGhost(self, gameState):
         agentPosition = gameState.getAgentState(self.index).getPosition()
