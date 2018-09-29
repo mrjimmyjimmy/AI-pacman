@@ -519,7 +519,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
     def getWeightsDefence(self, gameState, action):
         return {'numInvaders': -1000, 'onDefense': 1, 'invaderDistance': -10000, 'stop': -1, 'reverse': -1, 'danger': 1
-            , 'lostFoodDistance': -100, 'distToBoundary': -1}
+            , 'lostFoodDistance': -100}
 
 
 
@@ -536,6 +536,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         switch agent type here
         """
         agentType = 'offence'
+        # agentType = 'defence'
 
         # there is no enemy, try to catch some food
         for enemy in opponents:

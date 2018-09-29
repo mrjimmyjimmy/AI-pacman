@@ -501,7 +501,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     def getWeightOffence(self, gameState, action):
 
         return {'score': 100, 'DisToNearestFood': -60, 'disToCapsule': -500,
-                 'dropFood': 100, 'holdFood': -20, 'danger': -10, 'deadEnd': -20, 'stop': -1000}
+                'dropFood': 100, 'holdFood': -20, 'danger': -10, 'deadEnd': -20, 'stop': -1000}
 
     def getFeatureInital(self, gameState, action):
 
