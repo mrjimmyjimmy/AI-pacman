@@ -95,9 +95,10 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     def registerInitialState(self, gameState):
         CaptureAgent.registerInitialState(self, gameState)
 
-        self.weights = {'score': 1.78261354182, 'DisToNearestFood': -4.41094492098, 'disToGhost':8.17572535548,
-                        'disToCapsule': -1.36111562824, 'dots': 0.877933155097,
-                        'disToBoundary': -2.54156916302,'deadends':-2000}
+        self.weights = {'score': 1.78, 'DisToNearestFood': -6.2, 'disToGhost':9.7,
+                        'disToCapsule': -6.3, 'dots': 0.5,
+                        'stake': -0.5,
+                        'disToBoundary': -3.62, 'deadends':-2000}
         self.distancer.getMazeDistances()
 
         #----------- DEADEND PROCESSING
@@ -127,7 +128,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                 print "Adding neighbour:", (i, j-1)
 
             neighbors[(i,j)] = neighbor
-
+        print "nebrs 7-13", neighbors[(7,13)]
+        print "nebrs 9-13", neighbors[(9,13)]
         for (i,j) in neighbors:
             if len(neighbors[(i,j)]) >=3:
                 print "ij:", (i,j)
@@ -139,17 +141,24 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                         continue
                     elif len(nextNeighbor) == 1:
                         self.deadEnds[(i,j),direction] = 1
+                        if (i,j) == (8, 13):
+                            print "8-13-1111111", direction
+                            print "8-13 i1j1 revdir", (i1, j1), revdir
+                            print "nextNeighbour", nextNeighbor
                     else:
                         depth = 1
                         while len(nextNeighbor) == 2:
                             depth += 1
                             nextNeighbor.remove(revdir)
+                            nextNeighbor.append(revdir)
                             (i1, j1), revdir = nextStep((i1, j1), nextNeighbor[0])
                             nextNeighbor = neighbors[(i1, j1)]
                             if len(nextNeighbor) >= 3:
                                 continue
                             elif len(nextNeighbor) == 1:
                                 self.deadEnds[(i, j), direction] = depth
+                                if (i, j) == (8, 13):
+                                    print "8-13-22222222", direction
 
         for deadend in self.deadEnds:
             print "Correct deadends: ", deadend, self.deadEnds[deadend]
@@ -172,6 +181,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         for i in range(1, gameState.data.layout.height - 1):
             if not gameState.hasWall(cX, i):
                 self.boundary.append((cX, i))
+        print "boundry:", self.boundary
+
 
         # self.weights = {'score': 0, 'DisToNearestFood': -5, 'disToGhost': 50, 'disToCapsule': -55, 'dots': 50,
         #            'disToBoundary': -50}
@@ -204,7 +215,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                 maxQ = qval
                 maxQaction = action
 
-        self.updateWeights(gameState, maxQaction)
+        # self.updateWeights(gameState, maxQaction)
         print "so i choose:", maxQaction
         return maxQaction
 
@@ -238,9 +249,12 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         for a in range(len(self.boundary)):
             disToBoundary = min(disToBoundary, self.getMazeDistance(agentPosition, self.boundary[a]))
 
+        reward += stepCost + 20 * score
+        if disToBoundary > 1 and dots > 1:
+            reward -= 0.01*log(disToBoundary)*log(dots)
 
-
-        return reward + stepCost + 20*score - 10*disToBoundary*dots
+        print "get reward:", reward
+        return reward
 
     def disToNearestGhost(self, gameState):
         agentPosition = gameState.getAgentState(self.index).getPosition()
@@ -339,7 +353,17 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         disToBoundary = 99999
         for a in range(len(self.boundary)):
             disToBoundary = min(disToBoundary, self.getMazeDistance(agentPosition, self.boundary[a]))
-        features['disToBoundary'] = disToBoundary
+        # features['disToBoundary'] = disToBoundary
+        currentX, _ = agentPosition
+        cX, _ = self.boundary[0]
+        if (self.red and currentX <= cX) or ((not self.red) and currentX >= cX):
+            features['disToBoundary'] = disToBoundary
+            features['stake'] = 0
+        else:
+            features['disToBoundary'] = 0
+            features['stake'] = disToBoundary * features['dots']
+
+
         # ---------------------feature 7: dis to opponent's attackers----------------
         #  need more work on this feature
 
@@ -349,8 +373,9 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
         #----------------------feature 8: deadends-----------
         features['deadends'] = 0
-        if self.deadEnds.has_key((previous.getAgentState(self.index).getPosition(), action)) and self.deadEnds[(previous.getAgentState(self.index).getPosition(), action)] * 2 > features['disToGhost']:
-            print "!!!!!!!!!!DEADEND WARNING!!!!!!!!!!!!!!",agentPosition,action
+        previousPos = previous.getAgentState(self.index).getPosition()
+        if self.deadEnds.has_key((previousPos, action)) and self.deadEnds[(previousPos, action)] * 2 >= features['disToGhost']-1 > 0:
+            print "!!!!!!!!!!DEADEND WARNING!!!!!!!!!!!!!!", previousPos, action
             features['deadends'] = 100
         features.divideAll(10)
 
@@ -387,10 +412,10 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
 
         for f in features:
-            print "feature and weight:", f, features[f]
+            print "feature value:", f, features[f]
 
             self.weights[f] += alpha * (reward + discount * maxQ - q) * features[f]
-            print f, self.weights[f]
+            print "new weight for", f, self.weights[f]
 
 
 
