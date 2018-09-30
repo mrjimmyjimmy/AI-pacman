@@ -4,7 +4,7 @@ import random, time, util
 from game import Directions
 import game
 from util import nearestPoint
-
+import copy
 from math import sqrt, log
 import random, time
 import baselineTeam
@@ -42,20 +42,104 @@ class ReflexCaptureAgent(CaptureAgent):
     A base class for reflex agents that chooses score-maximizing actions
     """
 
+    def legalPosition(self, previousPosition, nextPosition):
+        x, y = previousPosition
+        m, n = nextPosition
+        if (m == x + 1 or m == x - 1) and (n == y + 1 or n == y - 1):
+            return True
+        else:
+            return False
+
     def registerInitialState(self, gameState):
         CaptureAgent.registerInitialState(self, gameState)
 
+        self.weights = {'score': 1.78261354182, 'DisToNearestFood': -4.91094492098, 'disToGhost': 8.17572535548,
+                'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
+                'disToBoundary': -2.94156916302, 'deadends': -10}
+
+        # self.weights = {'score': 0, 'DisToNearestFood': 0, 'disToGhost':0,
+        #                 'disToCapsule': 0, 'dots': 0,
+        #                 'disToBoundary': 0,'deadends':0}
         self.distancer.getMazeDistances()
+
+        # ----------- DEADEND PROCESSING
+        self.deadEnds = {}
+
+        neighbors = {}
+        walkable = []
+        for i in range(1, gameState.data.layout.width - 1):
+            for j in range(1, gameState.data.layout.height - 1):
+                if not gameState.hasWall(i, j):
+                    walkable.append((i, j))
+
+        for (i, j) in walkable:
+            print "walkable ij", (i, j)
+            neighbor = []
+            if (i + 1, j) in walkable:
+                neighbor.append(Directions.EAST)
+                print "Adding neighbour:", (i + 1, j)
+            if (i - 1, j) in walkable:
+                neighbor.append(Directions.WEST)
+                print "Adding neighbour:", (i - 1, j)
+            if (i, j + 1) in walkable:
+                neighbor.append(Directions.NORTH)
+                print "Adding neighbour:", (i, j + 1)
+            if (i, j - 1) in walkable:
+                neighbor.append(Directions.SOUTH)
+                print "Adding neighbour:", (i, j - 1)
+
+            neighbors[(i, j)] = neighbor
+
+        for (i, j) in neighbors:
+            if len(neighbors[(i, j)]) >= 3:
+                print "ij:", (i, j)
+                print "neighbours:", neighbors[(i, j)]
+                for direction in neighbors[(i, j)]:
+                    (i1, j1), revdir = nextStep((i, j), direction)
+                    nextNeighbor = neighbors[(i1, j1)]
+                    if len(nextNeighbor) >= 3:
+                        continue
+                    elif len(nextNeighbor) == 1:
+                        self.deadEnds[(i, j), direction] = 1
+
+
+                    else:
+                        depth = 1
+                        while len(nextNeighbor) == 2:
+                            depth += 1
+                            nextNeighbor.remove(revdir)
+                            nextNeighbor.append(revdir)
+                            (i1, j1), revdir = nextStep((i1, j1), nextNeighbor[0])
+                            nextNeighbor = neighbors[(i1, j1)]
+                            if len(nextNeighbor) >= 3:
+                                continue
+                            elif len(nextNeighbor) == 1:
+                                self.deadEnds[(i, j), direction] = depth
+
+        for deadend in self.deadEnds:
+            print "Correct deadends: ", deadend, self.deadEnds[deadend]
+
+        # -----------
+
+        print "Map width:", gameState.data.layout.width
         if self.red:
-            centralX = (gameState.data.layout.width - 2) / 2
+            cX = (gameState.data.layout.width - 2) / 2
+            self.deadEnds = dict((((x, y), dir), self.deadEnds[((x, y), dir)]) for ((x, y), dir) in self.deadEnds if
+                                 x > cX)  # deadend filter
+            print "blue deadends:", self.deadEnds
         else:
-            centralX = ((gameState.data.layout.width - 2) / 2) + 1
+            cX = ((gameState.data.layout.width - 2) / 2) + 1
+            self.deadEnds = dict((((x, y), dir), self.deadEnds[((x, y), dir)]) for ((x, y), dir) in self.deadEnds if
+                                 x < cX)  # deadend filter
+            print "red deadends:", self.deadEnds
+
         self.boundary = []
         for i in range(1, gameState.data.layout.height - 1):
-            if not gameState.hasWall(centralX, i):
-                self.boundary.append((centralX, i))
-        # self.weights = {'score': 0, 'DisToNearestFood': 0, 'disToGhost': 0, 'disToCapsule': 0, 'dots': 0,
-        #            'disToBoundary': -5}
+            if not gameState.hasWall(cX, i):
+                self.boundary.append((cX, i))
+
+        # self.weights = {'score': 0, 'DisToNearestFood': -5, 'disToGhost': 50, 'disToCapsule': -55, 'dots': 50,
+        #            'disToBoundary': -50}
 
     def getSuccessor(self, gameState, action):
         """
@@ -77,82 +161,193 @@ class ReflexCaptureAgent(CaptureAgent):
         weights = self.getWeights(gameState, action)
         return features * weights
 
+    def getFeaturesOffense(self, previous, action):
+        features = util.Counter()
+        gameState = self.getSuccessor(previous, action)
+        previousPosition = previous.getAgentState(self.index).getPosition()
+        agentPosition = gameState.getAgentState(self.index).getPosition()
+        if self.legalPosition(previousPosition, agentPosition):
+            features['disToGhost'] = -100
+            return features
+
+        # ---------------------feature 1: score----------------
+        features['score'] = self.getScore(gameState)
+        # ---------------------feature 2: distance to closest food----------------
+        x, y = gameState.getAgentState(self.index).getPosition()
+        oldFood = self.getFood(previous)
+        if oldFood[int(x)][int(y)]:
+            features['DisToNearestFood'] = 0
+        else:
+            food = self.getFood(gameState).asList()
+            if len(food) <= 2:
+                features['DisToNearestFood'] = 0
+            if len(food) > 2:
+                dis = []
+                for f in food:
+                    dis.append(self.getMazeDistance(agentPosition, f))
+                minDis = min(dis)
+                features['DisToNearestFood'] = minDis
+
+        # ---------------------feature 3: dis to closest ghost----------------
+        enemies = []
+        for e in self.getOpponents(gameState):
+            enemyState = gameState.getAgentState(e)
+            if not enemyState.isPacman and not enemyState.getPosition() is None and not enemyState.scaredTimer > 5:
+                enemies.append(enemyState)
+
+        if len(enemies) > 0:
+            print "FFFFFFFFFFFFFFFFFFFF Length of enemies > 0"
+            toEnemies = []
+            for e in enemies:
+                enemyPos = e.getPosition()
+                toEnemies.append(self.getMazeDistance(agentPosition, enemyPos))
+            # closest = min(position, key=lambda x: self.agent.getMazeDistance(agentPosition, x))
+
+            dis = min(toEnemies)
+            features['disToGhost'] = dis
+            if dis >= 12:
+                features['disToGhost'] = 12
+        else:
+            features['disToGhost'] = 12
+            # dis = []
+            # # dis = (dis.append(gameState.getAgentDistances()[index]) for index in self.agent.getOpponents(gameState))
+            # for index in self.getOpponents(gameState):
+            #     dis.append(gameState.getAgentDistances()[index])
+            # print "FFFFFFFFFFFFFFFFFFF length of enemies < 0, dis[]:", dis
+            # if min(dis) <= 6 :
+            #     features['disToGhost'] = 6
+            # else:
+            #     features['disToGhost'] = min(dis)
+
+        # features['disToGhost'] = 1/features['disToGhost']
+
+        # ---------------------feature 4: dis to closest capsule----------------
+        capsule = self.getCapsules(gameState)
+        if len(capsule) == 0:
+            features['disToCapsule'] = 0
+        else:
+            dis = []
+            for c in capsule:
+                dis.append(self.getMazeDistance(agentPosition, c))
+            features['disToCapsule'] = min(dis)
+        # ---------------------feature 5: carrying----------------
+        features['dots'] = gameState.getAgentState(self.index).numCarrying
+        # ---------------------feature 6: dis to boundary----------------
+        disToBoundary = 99999
+        for a in range(len(self.boundary)):
+            disToBoundary = min(disToBoundary, self.getMazeDistance(agentPosition, self.boundary[a]))
+        features['disToBoundary'] = disToBoundary
+        # ---------------------feature 7: dis to opponent's attackers----------------
+        #  need more work on this feature
+
+        # ---------------------feature 7: remaining food----------------
+
+        # ----------------------feature 8: deadends-----------
+        features['deadends'] = 0
+        if self.deadEnds.has_key((previous.getAgentState(self.index).getPosition(), action)) and self.deadEnds[
+            (previous.getAgentState(self.index).getPosition(), action)] * 2 >= features['disToGhost'] - 1 > 0:
+            features['deadends'] = 100
+        # features.divideAll(10)
+
+        return features
+
+
+def nextStep((x, y), direction):
+    if direction == Directions.SOUTH:
+        return ((x, y - 1), Directions.NORTH)
+    elif direction == Directions.NORTH:
+        return ((x, y + 1), Directions.SOUTH)
+    elif direction == Directions.EAST:
+        return ((x + 1, y), Directions.WEST)
+    else:
+        return ((x - 1, y), Directions.EAST)
+
 
 class OffensiveReflexAgent(ReflexCaptureAgent):
 
     def registerInitialState(self, gameState):
         CaptureAgent.registerInitialState(self, gameState)
 
-        #-----------
+        self.weights = {'score': 1.78261354182, 'DisToNearestFood': -4.91094492098, 'disToGhost': 8.17572535548,
+                'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
+                'disToBoundary': -2.94156916302, 'deadends': -10}
+
+        # self.weights = {'score': 0, 'DisToNearestFood': 0, 'disToGhost':0,
+        #                 'disToCapsule': 0, 'dots': 0,
+        #                 'disToBoundary': 0,'deadends':0}
+        self.distancer.getMazeDistances()
+
+        # ----------- DEADEND PROCESSING
         self.deadEnds = {}
-        # get the feasible position of the map
-        self.feasible = []
-        for i in range(1, gameState.data.layout.height - 1):
-            for j in range(1, gameState.data.layout.width - 1):
-                if not gameState.hasWall(j, i):
-                    self.feasible.append((j, i))
-        # store the crossroads met in the travel
-        crossRoad = util.Queue()
 
-        currentState = gameState
-        # the entrance of the deadend
-        entPos = currentState.getAgentPosition(self.index)
-        entDirection = currentState.getAgentState(self.index).configuration.direction
-        actions = currentState.getLegalActions(self.index)
-        actions.remove(Directions.STOP)
-        for a in actions:
-            crossRoad.push((currentState, a))
-        # if there is still some positions unexplored
-        while not crossRoad.isEmpty():
-            # if it is not a crossroad nor a deadend
+        neighbors = {}
+        walkable = []
+        for i in range(1, gameState.data.layout.width - 1):
+            for j in range(1, gameState.data.layout.height - 1):
+                if not gameState.hasWall(i, j):
+                    walkable.append((i, j))
 
-            (entState, entDirection) = crossRoad.pop()
-            depth = 0
-            entPos = entState.getAgentState(self.index).getPosition()
-            currentState = entState.generateSuccessor(self.index, entDirection)
-            while True:
-                # get current position
+        for (i, j) in walkable:
+            print "walkable ij", (i, j)
+            neighbor = []
+            if (i + 1, j) in walkable:
+                neighbor.append(Directions.EAST)
+                print "Adding neighbour:", (i + 1, j)
+            if (i - 1, j) in walkable:
+                neighbor.append(Directions.WEST)
+                print "Adding neighbour:", (i - 1, j)
+            if (i, j + 1) in walkable:
+                neighbor.append(Directions.NORTH)
+                print "Adding neighbour:", (i, j + 1)
+            if (i, j - 1) in walkable:
+                neighbor.append(Directions.SOUTH)
+                print "Adding neighbour:", (i, j - 1)
 
-                currentPos = currentState.getAgentState(self.index).getPosition()
-                # get next actions
-                actions = currentState.getLegalActions(self.index)
-                actions.remove(Directions.STOP)
-                currentDirection = currentState.getAgentState(self.index).configuration.direction
-                if currentPos not in self.feasible:
-                    break
-                self.feasible.remove(currentPos)
-                if Directions.REVERSE[currentDirection] in actions:
-                    actions.remove(Directions.REVERSE[currentDirection])
+            neighbors[(i, j)] = neighbor
 
-                # deadend
-                if len(actions) == 0:
-                    self.deadEnds[(entPos, entDirection)] = depth + 1
-                    break
+        for (i, j) in neighbors:
+            if len(neighbors[(i, j)]) >= 3:
+                print "ij:", (i, j)
+                print "neighbours:", neighbors[(i, j)]
+                for direction in neighbors[(i, j)]:
+                    (i1, j1), revdir = nextStep((i, j), direction)
+                    nextNeighbor = neighbors[(i1, j1)]
+                    if len(nextNeighbor) >= 3:
+                        continue
+                    elif len(nextNeighbor) == 1:
+                        self.deadEnds[(i, j), direction] = 1
 
-                # there is only one direction to move
-                elif len(actions) == 1:
-                    depth = depth + 1
-                    # generate next state
-                    currentState = currentState.generateSuccessor(self.index, actions[0])
-                # meet crossroad
-                else:
-                    # get the successors
-                    for a in actions:
-                        crossRoad.push((currentState, a))
-                    break
-        for i in self.deadEnds.keys():
-            print(i, self.deadEnds[i])
+
+                    else:
+                        depth = 1
+                        while len(nextNeighbor) == 2:
+                            depth += 1
+                            nextNeighbor.remove(revdir)
+                            nextNeighbor.append(revdir)
+                            (i1, j1), revdir = nextStep((i1, j1), nextNeighbor[0])
+                            nextNeighbor = neighbors[(i1, j1)]
+                            if len(nextNeighbor) >= 3:
+                                continue
+                            elif len(nextNeighbor) == 1:
+                                self.deadEnds[(i, j), direction] = depth
+
+        for deadend in self.deadEnds:
+            print "Correct deadends: ", deadend, self.deadEnds[deadend]
+
         # -----------
 
-
-        self.weights = {'score': 1.78261354182, 'DisToNearestFood': -4.41094492098, 'disToGhost':8.17572535548,
-                        'disToCapsule': -1.36111562824, 'dots': 0.877933155097,
-                        'disToBoundary': -2.54156916302,'deadends':-2000}
-        self.distancer.getMazeDistances()
+        print "Map width:", gameState.data.layout.width
         if self.red:
             cX = (gameState.data.layout.width - 2) / 2
+            self.deadEnds = dict((((x, y), dir), self.deadEnds[((x, y), dir)]) for ((x, y), dir) in self.deadEnds if
+                                 x > cX)  # deadend filter
+            print "blue deadends:", self.deadEnds
         else:
             cX = ((gameState.data.layout.width - 2) / 2) + 1
+            self.deadEnds = dict((((x, y), dir), self.deadEnds[((x, y), dir)]) for ((x, y), dir) in self.deadEnds if
+                                 x < cX)  # deadend filter
+            print "red deadends:", self.deadEnds
+
         self.boundary = []
         for i in range(1, gameState.data.layout.height - 1):
             if not gameState.hasWall(cX, i):
@@ -176,7 +371,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
         if util.flipCoin(epislon):
             action = random.choice(actions)
-            self.updateWeights(gameState, action)
+            # self.updateWeights(gameState, action)
             return action
 
         maxQ = -float("inf")
@@ -189,8 +384,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                 maxQ = qval
                 maxQaction = action
 
-        self.updateWeights(gameState, maxQaction)
-        print "so i choose:", maxQaction
+        # self.updateWeights(gameState, maxQaction)
+        print "====================================]=================so i choose:", maxQaction
         return maxQaction
 
     def getReward(self, gameState, action):
@@ -202,8 +397,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         disToGhost = self.disToNearestGhost(gameState)
         food = self.getFood(gameState)
         dx, dy = nextState.getAgentState(self.index).getPosition()
-        dots = gameState.getAgentState(self.index).numCarrying * -2
-
+        dots = gameState.getAgentState(self.index).numCarrying
 
         if food[int(dx)][int(dy)]:
             reward += foodReward
@@ -217,22 +411,20 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
         agentPosition = gameState.getAgentState(self.index).getPosition()
         if self.deadEnds.has_key((agentPosition, action)) and self.deadEnds[(agentPosition, action)] * 2 > disToGhost:
-            reward -= -200
+            reward -= 200
 
         disToBoundary = 99999
         for a in range(len(self.boundary)):
             disToBoundary = min(disToBoundary, self.getMazeDistance(agentPosition, self.boundary[a]))
 
-
-
-        return reward + stepCost + 20*score - 100*disToBoundary*dots
+        return reward + stepCost + 20 * score - 1 * disToBoundary * dots
 
     def disToNearestGhost(self, gameState):
         agentPosition = gameState.getAgentState(self.index).getPosition()
         enemies = []
         for e in self.getOpponents(gameState):
             enemyState = gameState.getAgentState(e)
-            if not enemyState.isPacman and not enemyState.getPosition() is None and not enemyState.scaredTimer>5:
+            if not enemyState.isPacman and not enemyState.getPosition() is None and not enemyState.scaredTimer > 5:
                 enemies.append(enemyState)
 
         if len(enemies) > 0:
@@ -246,102 +438,33 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             if dis < 6:
                 return dis
         else:
-            dis = []
-            # dis = (dis.append(gameState.getAgentDistances()[index]) for index in self.agent.getOpponents(gameState))
-            for index in self.getOpponents(gameState):
-                dis.append(gameState.getAgentDistances()[index])
-            return min(dis)
+            return 6
 
-    def evl(self, gameState):
-        """
-        Computes a linear combination of features and feature weights
-        """
-        features = self.getFeatures(gameState)
-        weights = self.getWeights(gameState)
-        return features * weights
+    # def evl(self, gameState):
+    #     """
+    #     Computes a linear combination of features and feature weights
+    #     """
+    #     features = self.getFeatures(gameState)
+    #     weights = self.getWeights(gameState)
+    #     return features * weights
 
     def evl2(self, gameState, action):
-        features = self.getFeatures(gameState, action)
-        return features * self.weights
+        features = self.getFeaturesOffense(gameState, action)
+        weights = self.getWeights(gameState, action)
+        newWeights = copy.deepcopy(weights)
 
-    def getFeatures(self, previous, action):
-        features = util.Counter()
-        gameState = self.getSuccessor(previous, action)
-        agentPosition = gameState.getAgentState(self.index).getPosition()
+        # if features['dots'] == 0:
+        #     newWeights['disToBoundary'] *= 0.7
+        # else:
+        #     newWeights['disToBoundary'] *= (1.0 + float(features['dots']) / 83)
 
-        # ---------------------feature 1: score----------------
-        features['score'] = self.getScore(gameState)
-        # ---------------------feature 2: distance to closest food----------------
-        x, y = gameState.getAgentState(self.index).getPosition()
-        oldFood = self.getFood(previous)
-        if oldFood[int(x)][int(y)]:
-            features['DisToNearestFood'] = 0
-        else:
-            food = self.getFood(gameState).asList()
-            if len(food) > 0:
-                dis = []
-                for f in food:
-                    dis.append(self.getMazeDistance(agentPosition, f))
-                minDis = min(dis)
-                features['DisToNearestFood'] = minDis
-
-        # ---------------------feature 3: dis to closest ghost----------------
-        enemies = []
-        for e in self.getOpponents(gameState):
-            enemyState = gameState.getAgentState(e)
-            if not enemyState.isPacman and not enemyState.getPosition() is None and not enemyState.scaredTimer>5:
-                enemies.append(enemyState)
-
-        if len(enemies) > 0:
-            toEnemies = []
-            for e in enemies:
-                enemyPos = e.getPosition()
-                toEnemies.append(self.getMazeDistance(agentPosition, enemyPos))
-            # closest = min(position, key=lambda x: self.agent.getMazeDistance(agentPosition, x))
-
-            dis = min(toEnemies)
-            if dis < 6:
-                features['disToGhost'] = dis
-        else:
-            dis = []
-            # dis = (dis.append(gameState.getAgentDistances()[index]) for index in self.agent.getOpponents(gameState))
-            for index in self.getOpponents(gameState):
-                dis.append(gameState.getAgentDistances()[index])
-            features['disToGhost'] = min(dis)
-
-        # ---------------------feature 4: dis to closest capsule----------------
-        capsule = self.getCapsules(gameState)
-        if len(capsule) == 0:
-            features['disToCapsule'] = 0
-        else:
-            dis = []
-            for c in capsule:
-                dis.append(self.getMazeDistance(agentPosition, c))
-            features['disToCapsule'] = min(dis)
-        # ---------------------feature 5: carrying----------------
-        features['dots'] = gameState.getAgentState(self.index).numCarrying
-        # ---------------------feature 6: dis to boundary----------------
-        disToBoundary = 99999
-        for a in range(len(self.boundary)):
-            disToBoundary = min(disToBoundary, self.getMazeDistance(agentPosition, self.boundary[a]))
-        features['disToBoundary'] = disToBoundary
-        # ---------------------feature 7: dis to opponent's attackers----------------
-        #  need more work on this feature
-
-        # ---------------------feature 7: remaining food----------------
+        print features
+        print newWeights
+        return features * newWeights
 
 
 
-        #----------------------feature 8: deadends-----------
-        features['deadends'] = 0
-        if self.deadEnds.has_key((previous.getAgentState(self.index).getPosition(), action)) and self.deadEnds[(previous.getAgentState(self.index).getPosition(), action)] * 2 > features['disToGhost']:
-            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",agentPosition,action
-            features['deadends'] = 100
-        features.divideAll(10)
-
-        return features
-
-    def getWeights(self, gameState):
+    def getWeights(self, gameState, action):
         # weights = {'score': 0, 'DisToNearestFood': 0, 'disToGhost': 0, 'disToCapsule': 0, 'dots': 0,
         #            'disToBoundary': 0}
         #
@@ -356,20 +479,18 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         Qvalue = []
         actions = gameState.getLegalActions(self.index)
         for a in actions:
-            Qvalue.append(self.evl2(gameState,a))
+            Qvalue.append(self.evl2(gameState, a))
         return max(Qvalue)
 
-
     def updateWeights(self, gameState, action):
-        alpha = 0.01
+        alpha = 0.0001
         discount = 0.7
         nextState = self.getSuccessor(gameState, action)
-        features = self.getFeatures(gameState,action)
+        features = self.getFeaturesOffense(gameState, action)
 
         reward = self.getReward(gameState, action)
         maxQ = self.getMaxQ(nextState)
-        q = self.evl2(gameState,Directions.STOP)
-
+        q = self.evl2(gameState, Directions.STOP)
 
         for f in features:
             print "feature and weight:", f, features[f]
@@ -378,9 +499,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             print f, self.weights[f]
 
 
-
 class DefensiveReflexAgent(ReflexCaptureAgent):
-
 
     def atCenter(self, myPos):
         minDis = []
@@ -399,10 +518,9 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         for enemy in enemies:
             pos = gameState.getAgentPosition(enemy)
             if pos != None:
-                enemyPos.append((enemy,pos))
+                enemyPos.append((enemy, pos))
 
         return enemyPos
-
 
     # Find which enemy is the closest
     def getEnemyDis(self, gameState, myPos):
@@ -444,11 +562,11 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         for i in previous:
             list_pre.append(i)
 
-        for i in range (len(list_pre)):
+        for i in range(len(list_pre)):
             if not list_pre[i] == list_curr[i]:
                 for j in range(len(list_curr[i])):
                     if not list_curr[i][j] == list_pre[i][j]:
-                        foodPos.append((i,j))
+                        foodPos.append((i, j))
 
         return foodPos
 
@@ -458,82 +576,82 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         Computes a linear combination of features and feature weights
         """
         return {
-            'inital': self.getFeatureInital(gameState,action) * self.getWeightsInital(gameState,action),
-            'defence': self.getFeaturesDefence(gameState,action) * self.getWeightsDefence(gameState,action),
-            'offence': self.getFeatureOffence(gameState,action) * self.getWeightOffence(gameState, action),
+            'inital': self.getFeatureInital(gameState, action) * self.getWeightsInital(gameState, action),
+            'defence': self.getFeaturesDefence(gameState, action) * self.getWeightsDefence(gameState, action),
+            'offence': self.getFeaturesOffense(gameState, action) * self.getWeightOffence(gameState, action),
         }.get(agentType)
 
-    def getFeatureOffence(self, gameState, action):
-
-        # initial features
-        features = util.Counter()
-        successor = self.getSuccessor(gameState, action)
-
-        # get the position
-        myState = successor.getAgentState(self.index)
-        myPos = myState.getPosition()
-
-
-        # ---------------------feature 1: score----------------
-        features['score'] = self.getScore(gameState)
-        # ---------------------feature 2: distance to closest food----------------
-        food = self.getFood(gameState).asList()
-        if len(food) > 0:
-            dis = []
-            for f in food:
-                dis.append(self.getMazeDistance(myPos, f))
-            minDis = min(dis)
-            features['DisToNearestFood'] = minDis
-
-        # ---------------------feature 3: dis to closest ghost----------------
-        enemies = []
-        for e in self.getOpponents(gameState):
-            enemyState = gameState.getAgentState(e)
-            if not enemyState.isPacman and not enemyState.getPosition() is None:
-                enemies.append(enemyState)
-
-        if len(enemies) > 0:
-            toEnemies = []
-            for e in enemies:
-                enemyPos = e.getPosition()
-                toEnemies.append(self.getMazeDistance(myPos, enemyPos))
-            # closest = min(position, key=lambda x: self.agent.getMazeDistance(agentPosition, x))
-
-            dis = min(toEnemies)
-            if dis < 6:
-                features['disToGhost'] = dis
-        else:
-            dis = []
-            # dis = (dis.append(gameState.getAgentDistances()[index]) for index in self.agent.getOpponents(gameState))
-            for index in self.getOpponents(gameState):
-                dis.append(gameState.getAgentDistances()[index])
-            features['disToGhost'] = min(dis)
-
-        # ---------------------feature 4: dis to closest capsule----------------
-        capsule = self.getCapsules(gameState)
-        if len(capsule) == 0:
-            features['disToCapsule'] = 0
-        else:
-            dis = []
-            for c in capsule:
-                dis.append(self.getMazeDistance(myPos, c))
-            features['disToCapsule'] = min(dis)
-        # ---------------------feature 5: carrying----------------
-        features['dots'] = gameState.getAgentState(self.index).numCarrying
-        # ---------------------feature 6: dis to boundary----------------
-        disToBoundary = 99999
-        for a in range(len(self.boundary)):
-            disToBoundary = min(disToBoundary, self.getMazeDistance(myPos, self.boundary[a]))
-        features['disToBoundary'] = disToBoundary
-        # ---------------------feature 7: dis to opponent's attackers----------------
-        #  need more work on this feature
-
-        return features
+    # def getFeatureOffence(self, gameState, action):
+    #
+    #     # initial features
+    #     features = util.Counter()
+    #     successor = self.getSuccessor(gameState, action)
+    #
+    #     # get the position
+    #     myState = successor.getAgentState(self.index)
+    #     myPos = myState.getPosition()
+    #
+    #     # ---------------------feature 1: score----------------
+    #     features['score'] = self.getScore(gameState)
+    #     # ---------------------feature 2: distance to closest food----------------
+    #     food = self.getFood(gameState).asList()
+    #     if len(food) > 0:
+    #         dis = []
+    #         for f in food:
+    #             dis.append(self.getMazeDistance(myPos, f))
+    #         minDis = min(dis)
+    #         features['DisToNearestFood'] = minDis
+    #
+    #     # ---------------------feature 3: dis to closest ghost----------------
+    #     enemies = []
+    #     for e in self.getOpponents(gameState):
+    #         enemyState = gameState.getAgentState(e)
+    #         if not enemyState.isPacman and not enemyState.getPosition() is None:
+    #             enemies.append(enemyState)
+    #
+    #     if len(enemies) > 0:
+    #         toEnemies = []
+    #         for e in enemies:
+    #             enemyPos = e.getPosition()
+    #             toEnemies.append(self.getMazeDistance(myPos, enemyPos))
+    #         # closest = min(position, key=lambda x: self.agent.getMazeDistance(agentPosition, x))
+    #
+    #         dis = min(toEnemies)
+    #         if dis < 6:
+    #             features['disToGhost'] = dis
+    #     else:
+    #         dis = []
+    #         # dis = (dis.append(gameState.getAgentDistances()[index]) for index in self.agent.getOpponents(gameState))
+    #         for index in self.getOpponents(gameState):
+    #             dis.append(gameState.getAgentDistances()[index])
+    #         features['disToGhost'] = min(dis)
+    #
+    #     # ---------------------feature 4: dis to closest capsule----------------
+    #     capsule = self.getCapsules(gameState)
+    #     if len(capsule) == 0:
+    #         features['disToCapsule'] = 0
+    #     else:
+    #         dis = []
+    #         for c in capsule:
+    #             dis.append(self.getMazeDistance(myPos, c))
+    #         features['disToCapsule'] = min(dis)
+    #     # ---------------------feature 5: carrying----------------
+    #     features['dots'] = gameState.getAgentState(self.index).numCarrying
+    #     # ---------------------feature 6: dis to boundary----------------
+    #     disToBoundary = 99999
+    #     for a in range(len(self.boundary)):
+    #         disToBoundary = min(disToBoundary, self.getMazeDistance(myPos, self.boundary[a]))
+    #     features['disToBoundary'] = disToBoundary
+    #     # ---------------------feature 7: dis to opponent's attackers----------------
+    #     #  need more work on this feature
+    #
+    #     return features
 
     def getWeightOffence(self, gameState, action):
 
-        return {'score': 30, 'DisToNearestFood': -5, 'disToGhost': 50, 'disToCapsule': -55, 'dots': 50,
-                'disToBoundary': -50}
+        return {'score': 1.78261354182, 'DisToNearestFood': -4.91094492098, 'disToGhost': 8.17572535548,
+                'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
+                'disToBoundary': -2.94156916302, 'deadends': -10}
 
     def getFeatureInital(self, gameState, action):
 
@@ -553,7 +671,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
     def getWeightsInital(self, gameState, action):
 
-        return {'disToBoundary' : 100}
+        return {'disToBoundary': 100}
 
     def getFeaturesDefence(self, gameState, action):
 
@@ -580,9 +698,9 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
         # get the distance to enemy
         enemyDistance = self.getEnemyDis(successor, myPos)
-        if(enemyDistance <= 5):
+        if (enemyDistance <= 5):
             features['danger'] = 1
-            if(enemyDistance <= 1 and self.ScaredTimer(successor) > 0):
+            if (enemyDistance <= 1 and self.ScaredTimer(successor) > 0):
                 features['danger'] = -1
         else:
             features['danger'] = 0
@@ -592,7 +710,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         if action == rev: features['reverse'] = 1
 
         # get the distance where the food lost
-        if not self.foodLostPosition()  == None:
+        if not self.foodLostPosition() == None:
             food = self.foodLostPosition()
             if 0 < len(food) < 3:
                 food = food[0]
@@ -611,14 +729,14 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         return {'numInvaders': -1000, 'onDefense': 1, 'invaderDistance': -10000, 'stop': -1, 'reverse': -1, 'danger': 1
             , 'lostFoodDistance': -100}
 
-
-
     def chooseAction(self, gameState):
         """
         Picks among the actions with the highest Q(s,a).
         """
         # get all legal actions
         actions = gameState.getLegalActions(self.index)
+        # sorry here bro
+        actions.remove(Directions.STOP)
         myPos = gameState.getAgentPosition(self.index)
         opponents = self.getOpponents(gameState)
 
@@ -638,7 +756,6 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         bestActions = [a for a, v in zip(actions, values) if v == maxValue]
         # print '------------------', agentType
         return random.choice(bestActions)
-
 
 
 ##########
