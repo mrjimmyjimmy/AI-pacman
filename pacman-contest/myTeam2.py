@@ -3,8 +3,7 @@
 # Licensing Information:  You are free to use or extend these projects for
 # educational purposes provided that (1) you do not distribute or publish
 # solutions, (2) you retain this notice, and (3) you provide clear
-# attribution to UC Berkeley, including a link to
-# http://inst.eecs.berkeley.edu/~cs188/pacman/pacman.html
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
 #
 # Attribution Information: The Pacman AI projects were developed at UC Berkeley.
 # The core projects and autograders were primarily created by John DeNero
@@ -12,20 +11,16 @@
 # Student side autograding was added by Brad Miller, Nick Hay, and
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
 
+
 from captureAgents import CaptureAgent
-import random, time, util, operator
-from util import nearestPoint
+import distanceCalculator
+import random, time, util, sys
 from game import Directions
 import game
-
-POWERCAPSULETIME = 120
-
-#################
-# Team creation #
-#################
+from util import nearestPoint
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'TopAgent', second = 'BottomAgent'):
+               first = 'MyAgent', second = 'MyAgent'):
     """
     This function should return a list of two agents that will form the
     team, initialized using firstIndex and secondIndex as their agent
@@ -40,307 +35,238 @@ def createTeam(firstIndex, secondIndex, isRed,
     any extra arguments, so you should make sure that the default
     behavior is what you want for the nightly contest.
     """
-
-    # The following line is an example only; feel free to change it.
     return [eval(first)(firstIndex), eval(second)(secondIndex)]
 
-##########
-# Agents #
-##########
 
-class MainAgent(CaptureAgent):
 
-    # Give each agent a most likely position and a power timer
-    def __init__(self, gameState):
-        CaptureAgent.__init__(self, gameState)
-        self.mostlikely = [None]*4
-        self.powerTimer = 0
+class MyAgent(CaptureAgent):
 
     def registerInitialState(self, gameState):
-        """
-        This method handles the initial setup of the
-        agent to populate useful fields (such as what team
-        we're on).
-
-        A distanceCalculator instance caches the maze distances
-        between each pair of positions, so your agents can use:
-        self.distancer.getDistance(p1, p2)
-
-        IMPORTANT: This method may run for at most 15 seconds.
-        """
-        ''' 
-        Make sure you do not delete the following line. If you would like to
-        use Manhattan distances instead of maze distances in order to save
-        on initialization time, please take a look at
-        CaptureAgent.registerInitialState in captureAgents.py. 
-        '''
+        self.start = gameState.getAgentPosition(self.index)
         CaptureAgent.registerInitialState(self, gameState)
+        # Always initiated as offense agent
+        self.mode = "offense"
+        self.capsule_time = 0
 
-        ''' 
-        Your initialization code goes here, if you need any.
-        '''
-        # Sets if agent is on red team or not
-        if self.red:
-            CaptureAgent.registerTeam(self, gameState.getRedTeamIndices())
-        else:
-            CaptureAgent.registerTeam(self, gameState.getBlueTeamIndices())
-
-        # Get how large the game space is
-        self.x, self.y = gameState.getWalls().asList()[-1]
-        # Legal positions are positions without walls
-        self.legalPositions = [p for p in gameState.getWalls().asList(False) if p[1] > 1]
-        self.walls = list(gameState.getWalls())
-        # Chokes contains choke points on our side of game space
-        self.chokes = []
-
-        # Offsets for how far away from middle our ghosts should sit if an invader is detected
-        # but cannot be seen for some reason
-        if self.red:
-            xAdd = -3
-        else:
-            xAdd = 4
-
-        # Find all choke points of interest
-        for i in range(self.y):
-            if not self.walls[self.x/2+xAdd][i]:
-                self.chokes.append(((self.x/2+xAdd), i))
-        if self.index == max(gameState.getRedTeamIndices()) or self.index == max(gameState.getBlueTeamIndices()):
-            x, y = self.chokes[3*len(self.chokes)/4]
-        else:
-            x, y = self.chokes[1*len(self.chokes)/4]
-        self.goalTile = (x, y)
-
-        # beliefs is used to infere the position of enemy agents using noisey data
-        global beliefs
-        beliefs = [util.Counter()] * gameState.getNumAgents()
-
-        # All beliefs begin with the agent at its inital position
-        for i, val in enumerate(beliefs):
-            if i in self.getOpponents(gameState):
-                beliefs[i][gameState.getInitialAgentPosition(i)] = 1.0
-
-                #Agents inital move towards the centre with a bias for either the top or the bottom
-        self.goToCenter(gameState)
-
-    # Detect position of enemies that are visible
-    def getEnemyPos(self, gameState):
-        enemyPos = []
-        for enemy in self.getOpponents(gameState):
-            pos = gameState.getAgentPosition(enemy)
-            #Will need inference if None
-            if pos != None:
-                enemyPos.append((enemy, pos))
-        return enemyPos
-
-    # Find which enemy is the closest
-    def enemyDist(self, gameState):
-        pos = self.getEnemyPos(gameState)
-        minDist = None
-        if len(pos) > 0:
-            minDist = float('inf')
-            myPos = gameState.getAgentPosition(self.index)
-            for i, p in pos:
-                dist = self.getMazeDistance(p, myPos)
-                if dist < minDist:
-                    minDist = dist
-        return minDist
-
-    #Is agent a pacman or a ghost?
-    def inEnemyTerritory(self, gameState):
-        return gameState.getAgentState(self.index).isPacman
-
-    # Return the position of the agent currently being processed
-    def getMyPos(self, gameState):
-        return gameState.getAgentState(self.index).getPosition()
-
-    # Calculates the distance to the partner of the current agent
-    def getDistToPartner(self, gameState):
-        distanceToAgent = None
-        agentsList = self.agentsOnTeam
-        if self.index == self.agentsOnTeam[0]:
-            otherAgentIndex = self.agentsOnTeam[1]
-            distanceToAgent = None
-        else:
-            otherAgentIndex = self.agentsOnTeam[0]
-            # The below code is under 'else' so that only
-            # one of the pacmen cares how close it is to the other
-            # so that they don't become confused
-            myPos = self.getMyPos(gameState)
-            otherPos = gameState.getAgentState(otherAgentIndex).getPosition()
-            distanceToAgent = self.getMazeDistance(myPos, otherPos)
-            if distanceToAgent == 0:
-                distanceToAgent = 0.5
-        return distanceToAgent
-
-    # Which side of the board is the agent?
-    def side(self,gameState):
-        width, height = gameState.data.layout.width, gameState.data.layout.height
-        pos = gameState.getAgentPosition(self.index)
-        if self.index%2==1:
-            # red
-            if pos[0]<width/(2):
-                return 1.0
-            else:
-                return 0.0
-        else:
-            # blue
-            if pos[0]>width/2-1:
-                return 1.0
-            else:
-                return 0.0
-
-    # Is pacman powered?
-    def isPowered(self):
-        return self.powerTimer > 0
-
-    # How much longer is the ghost scared?
-    def ScaredTimer(self, gameState):
-        return gameState.getAgentState(self.index).scaredTimer
-
-    # Gets the distribution for where a ghost could be, all weight equally
-    def getDist(self, p):
-        posActions = [(p[0] - 1, p[1]), (p[0] + 1, p[1]), (p[0], p[1] - 1), (p[0], p[1] + 1), (p[0], p[1])]
-        actions = []
-        for act in posActions:
-            if act in self.legalPositions:
-                actions.append(act)
-
-        dist = util.Counter()
-        for act in actions:
-            dist[act] = 1
-        return dist
-
-    # Looks at how an agent could move from where they currently are
-    def elapseTime(self, gameState):
-        for agent, belief in enumerate(beliefs):
-            if agent in self.getOpponents(gameState):
-                newBeliefs = util.Counter()
-                # Checks to see what we can actually see
-                pos = gameState.getAgentPosition(agent)
-                if pos != None:
-                    newBeliefs[pos] = 1.0
-                else:
-                    # Look at all current beliefs
-                    for p in belief:
-                        if p in self.legalPositions and belief[p] > 0:
-                            # Check that all these values are legal positions
-                            newPosDist = self.getDist(p)
-                            for x, y in newPosDist:# iterate over these probabilities
-                                newBeliefs[x, y] += belief[p] * newPosDist[x, y]
-                                # The new chance is old chance * prob of this location from p
-                    if len(newBeliefs) == 0:
-                        oldState = self.getPreviousObservation()
-                        if oldState != None and oldState.getAgentPosition(agent) != None: # just ate an enemy
-                            newBeliefs[oldState.getInitialAgentPosition(agent)] = 1.0
-                        else:
-                            for p in self.legalPositions: newBeliefs[p] = 1.0
-                beliefs[agent] = newBeliefs
-
-        #self.displayDistributionsOverPositions(beliefs)
-
-    # Looks for where the enemies currently are
-    def observe(self, agent, noisyDistance, gameState):
-        myPos = gameState.getAgentPosition(self.index)
-        # Current state probabilities
-        allPossible = util.Counter()
-        for p in self.legalPositions:   # check each legal position
-            trueDistance = util.manhattanDistance(p, myPos) # distance between this point and Pacman
-            allPossible[p] += gameState.getDistanceProb(trueDistance, noisyDistance)
-            # The new values are product of prior probability and new probability
-        for p in self.legalPositions:
-            beliefs[agent][p] *= allPossible[p]
-
-            # Choose which action will result in the best move
+    ##################
+    # Mode & Actions #
+    ##################
     def chooseAction(self, gameState):
         """
-        Picks among the actions with the highest Q(s,a).
+        1. Decide if agent should take offensive or defensive action
+        2. Picks among the actions with the highest Q(s,a).
         """
-        # You can profile your evaluation time by uncommenting these lines
-        #start = time.time()
+        start = time.time()
+        # update capsule time
+        if self.getPreviousObservation()!= None:
+            if len(self.getCapsules(self.getPreviousObservation())) - len(self.getCapsules(gameState)):
+                self.capsule_time = 38
+            else:
+                self.capsule_time = max(0, self.capsule_time - 1)
 
-        # Get all legal actions of current state
-        actions = gameState.getLegalActions(self.index)
-        # Get list of opponents
-        opponents = self.getOpponents(gameState)
-        # Get noisey distance data
-        noisyD = gameState.getAgentDistances()
-
-        # Get this agent's current position
+        # Choose Mode
+        myTeam = self.getTeam(gameState)
+        oppoTeam = self.getOpponents(gameState)
+        partner_index = [a for a in myTeam if a != self.index][0]
+        partner = gameState.getAgentState(partner_index)
+        partnerPos = partner.getPosition()
         myPos = gameState.getAgentPosition(self.index)
+        score = self.getScore(gameState)
+        upper_bound = 13 # Change this
+        lower_bound = -1
+        pac = [1 for i in oppoTeam if gameState.getAgentState(i).isPacman]
+        if not pac:
+            num_pac = 0
+        else:
+            num_pac = sum(pac)
 
-        # Observe each opponent to get noisey distance measurement and process
-        for agent in opponents:
-            self.observe(agent, noisyD[agent], gameState)
+        ## Choose mode based on utility
+        # FIXME: if we become white, we go offense
+        if num_pac == 0 or score <= lower_bound: # All opponents are ghosts
+            self.mode = "offense"
+        elif num_pac == 2 or score >= upper_bound:
+            self.mode = "defense"
+        else:
+            if myPos[0] > partnerPos[0]:
+                self.mode = "offense"
+            else:
+                self.mode = "defense"
 
-            # Set default move location to the hover position from above
-        self.locations = [self.chokes[len(self.chokes)/2]] * gameState.getNumAgents()
-        for i, belief in enumerate(beliefs):
-            maxLoc = 0
-            checkForAllEq = 0
-            for val in beliefs[i]:
-                # Checks if there are many possible locations for the enemy with equal probability
-                if belief[val] == maxLoc and maxLoc > 0:
-                    # If many locations are equally likely, ignore this inference itteration as it is inaccurate
-                    checkForAllEq += 1
-                elif belief[val] > maxLoc:
-                    maxLoc = belief[val]
-                    self.locations[i] = val
-                    # Set target location as the highest probability location
-            if checkForAllEq > 5:
-                self.locations[i] = self.goalTile
-
-        # Normalise new probabilities and pick most likely location for enemy agent
-        for agent in opponents:
-            beliefs[agent].normalize()
-            self.mostlikely[agent] = max(beliefs[agent].iteritems(), key=operator.itemgetter(1))[0]
-
-        # Do next time step
-        self.elapseTime(gameState)
-        # Get agent position
-        agentPos = gameState.getAgentPosition(self.index)
-
-        ##################
-        # Choose Tactics #
-        ##################
-
-        # Default to attack mode
-        evaluateType = 'attack'
-
-        #Start in the start state, move to the centre then switch to attack
-        if self.atCenter == False:
-            evaluateType = 'start'
-
-        # If at centre, switch to attack
-        if agentPos == self.center and self.atCenter == False:
-            self.atCenter = True
-            evaluateType = 'attack'
-
-        # If an enemy is attacking our food, hunt that enemy down
-        for agent in opponents:
-            if(gameState.getAgentState(agent).isPacman):
-                evaluateType = 'hunt'
-
-                #If we directly see an enemy on our side, swich to defence
-        enemyPos = self.getEnemyPos(gameState)
-        if len(enemyPos) > 0:
-            for enemy, pos in enemyPos:
-                if self.getMazeDistance(agentPos, pos) < 5 and not self.inEnemyTerritory(gameState):
-                    evaluateType = 'defend'
-                    break
-
-        # Get all legal actions this agent can make in this state
+        # Choose Action
         actions = gameState.getLegalActions(self.index)
-        # Calcualte heuristic score of each action
-        values = [self.evaluate(gameState, a, evaluateType) for a in actions]
-        #print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
+        is_offense_minimax = False # if we need to use min-max
+        is_defense_minimax = False
+        for oppo in oppoTeam:
+            if gameState.getAgentPosition(oppo) is not None and not gameState.getAgentState(oppo).isPacman and not self.capsule_time:
+                is_offense_minimax = True
+            if gameState.getAgentPosition(oppo) is not None and gameState.getAgentState(oppo).isPacman and not self.capsule_time:
+                is_defense_minimax = True
 
-        # Pick the action with the highest heuristic score as the best next move
+        ## Min-Max needed
+        if is_offense_minimax and self.mode == "offense":
+            bestScore, alpha = -sys.maxint, -sys.maxint
+            action = None
+            for a in actions:
+                score = self.offenseValue(gameState.generateSuccessor(self.index, a), self.index,
+                                          alpha, sys.maxint, 4, gameState.getNumAgents())
+                if score >= bestScore:
+                    bestScore = score
+                    action = a
+                if score > alpha:
+                    alpha = score
+            # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
+            return action
+
+
+        ## Min-Max not needed
+        else:
+            values = [self.evaluate(gameState, a) for a in actions]
+            maxValue = max(values)
+            bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+
+            if self.mode == "offense":
+                foodLeft = len(self.getFood(gameState).asList())
+
+                if foodLeft <= 2:
+                    bestDist, bestAction = 9999, None
+                    for action in actions:
+                        successor = self.getSuccessor(gameState, action)
+                        pos2 = successor.getAgentPosition(self.index)
+                        dist = self.getMazeDistance(self.start, pos2)
+                        if dist < bestDist:
+                            bestAction = action
+                            bestDist = dist
+                    return bestAction
+            action = random.choice(bestActions)
+            return action
+
+    #####################
+    # Feature & Weights #
+    #####################
+    def getFeatures(self, gameState, action):
+        features = util.Counter()
+        successor = self.getSuccessor(gameState, action)
+        myAgent = successor.getAgentState(self.index)
+        myPos = myAgent.getPosition()
+
+        if self.mode == "offense":
+            # Successor Score: How much score higher than the other team
+            features['successorScore'] = self.getScore(successor)
+
+            # Food To Eat: how many food we need to eat to beat the other team
+            foodList = self.getFood(successor).asList()
+            features['foodToEat'] = len(self.getFoodYouAreDefending(successor).asList()) - len(foodList)
+
+            # Min Score Dist: Minimum
+            min_dist_to_score = min(
+                [self.getMazeDistance(myPos, (16, float(i))) for i in range(0, 16) if not successor.hasWall(16, i)])
+            if self.red:
+                min_dist_to_score = min(
+                    [self.getMazeDistance(myPos, (15, float(i))) for i in range(0, 16) if not successor.hasWall(15, i)])
+            features['minScoreDist'] = -min_dist_to_score
+
+            # Distance to Food: distance to the nearest food
+            minDistance = 0
+            if len(foodList) > 0:
+                minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
+            features['distanceToFood'] = -minDistance
+
+
+            # Distance to Ghost: how far are we from the closest ghost
+            min_dist_to_ghost = 5
+            for oppo in self.getOpponents(successor):
+                if not successor.getAgentState(oppo).isPacman:
+                    if successor.getAgentPosition(oppo) is None:
+                        continue
+                    dist = self.getMazeDistance(myPos, successor.getAgentPosition(oppo))
+                    if dist < min_dist_to_ghost or not min_dist_to_ghost:
+                        min_dist_to_ghost = dist
+            if self.capsule_time > 0: # Opponent is white ghost
+                min_dist_to_ghost = 5
+            # if myPos == successor.getInitialAgentPosition(self.index):
+            #     min_dist_to_ghost = -5 # We got eaten
+            features['distanceToGhost'] = min_dist_to_ghost
+
+
+            # Distance to Capsules
+            dist_to_capsules = 0
+            capPos = self.getCapsules(successor)
+            if capPos:
+                capPos = capPos[0]
+                dist_to_capsules = self.getMazeDistance(myPos, capPos)
+            features['distanceToCapsules'] = -dist_to_capsules
+
+            # ifDeadEnd: 3 walls around
+            deadEnd = 0
+            if len(successor.getLegalActions(self.index)) == 1:
+                deadEnd = -1
+            elif len(successor.getLegalActions(self.index)) == 2:
+                deadEnd = -0.5
+            features['isDeadEnd'] = deadEnd
+
+            # Distance to Pacman: Attack opponent pacman when we haven't get over yet
+            dist_to_pacman = 0
+            if not myAgent.isPacman:
+                for oppo in self.getOpponents(successor):
+                    if successor.getAgentState(oppo).isPacman \
+                            and successor.getAgentPosition(oppo) is not None:
+                        dist = self.getMazeDistance(myPos, successor.getAgentPosition(oppo))
+                        if dist_to_pacman and dist < dist_to_pacman:
+                            dist_to_pacman = dist
+            features['distanceToPacman'] = -dist_to_pacman
+
+            # Distance to partner
+            dist_to_partner = 0
+            myTeam = self.getTeam(gameState)
+            partner_index = [a for a in myTeam if a != self.index][0]
+            partner = gameState.getAgentState(partner_index)
+            partnerPos = partner.getPosition()
+            dist_to_partner = self.getMazeDistance(myPos, partnerPos)
+            features['distanceToPartner'] = dist_to_partner**2
+
+        # Defense
+        else:
+            # num Invaders: distance to invaders we can see
+            enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+            invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
+            features['numInvaders'] = -len(invaders)
+            if len(invaders) > 0:
+                dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
+                features['invaderDistance'] = -min(dists)
+
+            if action == Directions.STOP: features['stop'] = -1
+            rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
+            if action == rev: features['reverse'] = -1
+
+        return features
+
+    def getWeights(self, gameState, action):
+        if self.mode == "offense":
+            # How many food on us we haven't delivered back
+            food_bearing = 20 - len(self.getFood(gameState).asList()) - self.getScore(gameState)
+            return {'successorScore': 10000,
+                    'distanceToFood': 1,
+                    'foodToEat': 1000,
+                    'minScoreDist': 2 * food_bearing,
+                    'distanceToGhost': 500 * (food_bearing + 1),
+                    'distanceToCapsules': 10,
+                    'isDeadEnd': 10,
+                    'distanceToPacman': 10,
+                    'distanceToPartner': 0}
+        else:
+            return {'numInvaders': 1000,
+                    'invaderDistance': 10,
+                    'stop': 100,
+                    'reverse': 2}
+
+    ####################
+    # Helper Functions #
+    ####################
+    def evaluate_minimax(self, gameState):
+        actions = gameState.getLegalActions(self.index)
+        values = [self.evaluate(gameState, a) for a in actions]
         maxValue = max(values)
-        bestActions = [a for a, v in zip(actions, values) if v == maxValue]
-
-        # If multiple best moves exist (unlikely), pick one at random
-        return random.choice(bestActions)
-
+        return maxValue
 
     def getSuccessor(self, gameState, action):
         """
@@ -354,299 +280,62 @@ class MainAgent(CaptureAgent):
         else:
             return successor
 
-    # Calculate the heurisic score of each action depending on what tactic is being used
-    def evaluate(self, gameState, action, evaluateType):
+    def evaluate(self, gameState, action):
         """
         Computes a linear combination of features and feature weights
         """
-        if evaluateType == 'attack':
-            #print "ATTACKING!!!"
-            features = self.getFeaturesAttack(gameState, action)
-            weights = self.getWeightsAttack(gameState, action)
-        elif evaluateType == 'defend':
-            #print "DEFENDING!!!"
-            features = self.getFeaturesDefend(gameState, action)
-            weights = self.getWeightsDefend(gameState, action)
-        elif evaluateType == 'start':
-            #print "STARTING!!!"
-            features = self.getFeaturesStart(gameState, action)
-            weights = self.getWeightsStart(gameState, action)
-        elif evaluateType == 'hunt':
-            #print "HUNTING!!!"
-            features = self.getFeaturesHunt(gameState, action)
-            weights = self.getWeightHunt(gameState, action)
-
+        features = self.getFeatures(gameState, action)
+        weights = self.getWeights(gameState, action)
         return features * weights
 
-    # Returns all the heuristic features for the HUNT tactic
-    def getFeaturesHunt(self, gameState, action):
+    def cutoffTest(self, gameState, depth):
+        if depth == 0 or gameState.isOver():
+            return True
+        return False
 
-        features = util.Counter()
-        successor = self.getSuccessor(gameState, action)
+    #####################
+    # Offensive MiniMax #
+    #####################
+    def offenseValue(self, gameState, agentIndex, alpha, beta, depth, numAgents):
+        if self.cutoffTest(gameState, depth):
+            return self.evaluate_minimax(gameState)
 
-        # Get own position
-        myState = successor.getAgentState(self.index)
-        myPos = myState.getPosition()
-
-        # Get opponents and invaders
-        opponents = self.getOpponents(gameState)
-        invaders = [agent for agent in opponents if successor.getAgentState(agent).isPacman]
-
-        # Find number of invaders
-        features['numInvaders'] = len(invaders)
-
-        # For each invader, calulate its most likely poisiton and distance
-        for agent in invaders:
-            enemyPos = self.mostlikely[agent]
-            enemyDist = self.getMazeDistance(myPos, enemyPos)
-        features['invaderDistance'] = enemyDist
-
-        # Compute distance to partner
-        if self.inEnemyTerritory(successor):
-            distanceToAlly = self.getDistToPartner(successor)
-            # distanceToAgent is always None for one of the agents (so they don't get stuck)
-            if distanceToAlly != None:
-                features['distanceToAlly'] = 1.0/distanceToAlly
-
-        if action == Directions.STOP: features['stop'] = 1
-        rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
-        if action == rev: features['reverse'] = 1
-
-        return features
-
-    # Returns all the heuristic features for the ATTACK tactic
-    def getFeaturesAttack(self, gameState, action):
-        features = util.Counter()
-        successor = self.getSuccessor(gameState, action)
-        # Get own position, size of game state and locations of all food to eat
-        myState = successor.getAgentState(self.index)
-        myPos = myState.getPosition()
-        agentsList = self.agentsOnTeam
-        width, height = gameState.data.layout.width, gameState.data.layout.height
-        foodList = self.getFood(successor).asList()
-
-        # Get score for successor state
-        features['successorScore'] = self.getScore(successor)
-
-        # Dist to nearest food heuristic
-        if len(foodList) > 0:
-            minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
-            features['distanceToFood'] = minDistance
-
-        # Pickup food heuristic
-        if(len(foodList)>0):
-            features['pickupFood'] = -len(foodList) + 100*self.getScore(successor)
-
-        # Compute distance to enemy
-        distEnemy = self.enemyDist(successor)
-        if(distEnemy != None):
-            if(distEnemy <= 2):
-                features['danger'] = 4/distEnemy
-            elif(distEnemy <= 4):
-                features['danger'] = 1
-            else:
-                features['danger'] = 0
-
-                # Compute distance to capsule
-        capsules = self.getCapsules(successor)
-        if(len(capsules) > 0):
-            minCapsuleDist = min([self.getMazeDistance(myPos, capsule) for capsule in capsules])
-            features['pickupCapsule'] = -len(capsules)
+        if agentIndex == self.index:
+            return self.offenseMax(gameState, agentIndex, alpha, beta, depth, numAgents)
+        elif gameState.isOnRedTeam(agentIndex) != gameState.isOnRedTeam(self.index) \
+                and gameState.getAgentPosition(agentIndex) != None \
+                and not gameState.getAgentState(agentIndex).isPacman:
+            return self.offenseMin(gameState, agentIndex, alpha, beta, depth, numAgents)
         else:
-            minCapsuleDist = .1
-        features['capsuleDist'] =  1.0/minCapsuleDist
+            return self.offenseValue(gameState, (agentIndex + 1) % numAgents, alpha, beta, depth, numAgents)
 
-        # Holding food heuristic
-        if myPos in self.getFood(gameState).asList():
-            self.foodNum += 1.0
-        if self.side(gameState) == 0.0:
-            self.foodNum = 0.0
-        features['holdFood'] = self.foodNum*(min([self.distancer.getDistance(myPos,p) for p in [(width/2,i) for i in range(1,height) if not gameState.hasWall(width/2,i)]]))*self.side(gameState)
+    def offenseMax(self, gameState, agentIndex, alpha, beta, depth, numAgents):
+        v = -sys.maxint
+        for a in gameState.getLegalActions(agentIndex):
+            s = gameState.generateSuccessor(agentIndex, a)
+            v = max(v, self.offenseValue(s, ((agentIndex + 1) % numAgents), alpha, beta, depth - 1, numAgents))
+            if v >= beta:
+                return v
+            alpha = max(alpha, v)
+        return v
 
-        # Dropping off food heuristic
-        features['dropFood'] = self.foodNum*(self.side(gameState))
+    def offenseMin(self, gameState, agentIndex, alpha, beta, depth, numAgents):
+        v = sys.maxint
+        past_dist = self.getMazeDistance(gameState.getAgentPosition(self.index), gameState.getAgentPosition(agentIndex))
+        for a in gameState.getLegalActions(agentIndex):
+            s = gameState.generateSuccessor(agentIndex, a)
+            if self.getMazeDistance(s.getAgentPosition(self.index), gameState.getAgentPosition(self.index)) >= 2 and s.getAgentPosition(self.index) == s.getInitialAgentPosition(self.index):
+                return -sys.maxint
+            if self.getMazeDistance(s.getAgentPosition(self.index),
+                                    s.getAgentPosition(agentIndex)) < past_dist or self.getMazeDistance(s.getAgentPosition(self.index),
+                                                                                                        s.getAgentPosition(agentIndex)) <= 2:
+                v = min(v, self.offenseValue(s, ((agentIndex + 1) % numAgents), alpha, beta, depth - 1, numAgents))
+                if v <= alpha:
+                    return v
+                beta = min(beta, v)
+        return v
 
-        # If picked up a capsule, set power timer
-        if myPos in self.getCapsules(gameState):
-            self.powerTimer = POWERCAPSULETIME
 
-        # If powered, reduce power timer each itteration
-        if self.powerTimer>0:
-            self.powerTimer -= 1
 
-        # Is powered heuristic
-        if(self.isPowered()):
-            features['isPowered'] = self.powerTimer/POWERCAPSULETIME
-            features['holdFood'] = 0.0
-            features['pickupFood'] = 100*features['pickupFood']
-        else:
-            features['isPowered'] = 0.0
 
-        # Compute distance to partner
-        if self.inEnemyTerritory(successor):
-            distanceToAlly = self.getDistToPartner(successor)
-            # distanceToAgent is always None for one of the agents (so they don't get stuck)
-            if distanceToAlly != None:
-                features['distanceToAlly'] = 1.0/distanceToAlly
 
-        # Dead end heuristic
-        actions = gameState.getLegalActions(self.index)
-        if(len(actions) <= 2):
-            features['deadEnd'] = 1.0
-        else:
-            features['deadEnd'] = 0.0
-
-        # Stop heuristic
-        if(action == Directions.STOP):
-            features['stop'] = 1.0
-        else:
-            features['stop'] = 0.0
-
-        return features
-
-    # Returns all the heuristic features for the DEFEND tactic
-    def getFeaturesDefend(self, gameState, action):
-        features = util.Counter()
-        successor = self.getSuccessor(gameState, action)
-
-        # Get own position
-        myState = successor.getAgentState(self.index)
-        myPos = myState.getPosition()
-
-        # List invaders we can see
-        enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
-        invaders = [enemy for enemy in enemies if enemy.isPacman and enemy.getPosition() != None]
-
-        # Get number of invaders
-        features['numInvaders'] = len(invaders)
-        if len(invaders) > 0:
-            enemyDist = [self.getMazeDistance(myPos, enemy.getPosition()) for enemy in invaders]
-            #Find closest invader
-            features['invaderDistance'] = min(enemyDist)
-
-        # Compute distance to enemy
-        distEnemy = self.enemyDist(successor)
-        if(distEnemy <= 5):
-            features['danger'] = 1
-            if(distEnemy <= 1 and self.ScaredTimer(successor) > 0):
-                features['danger'] = -1
-        else:
-            features['danger'] = 0
-
-            # Compute distance to partner
-        if self.inEnemyTerritory(successor):
-            distanceToAlly = self.getDistToPartner(successor)
-            # distanceToAgent is always None for one of the agents (so they don't get stuck)
-            if distanceToAlly != None:
-                features['distanceToAlly'] = 1.0/distanceToAlly
-
-        if action == Directions.STOP: features['stop'] = 1
-        rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
-        if action == rev: features['reverse'] = 1
-
-        return features
-
-    # Returns all the heuristic features for the START tactic
-    def getFeaturesStart(self, gameState, action):
-        features = util.Counter()
-        successor = self.getSuccessor(gameState, action)
-
-        # Get own position
-        myState = successor.getAgentState(self.index)
-        myPos = myState.getPosition()
-
-        # Compute distance to board centre
-        dist = self.getMazeDistance(myPos, self.center)
-        features['distToCenter'] = dist
-        if myPos == self.center:
-            features['atCenter'] = 1
-        return features
-
-    # Returns heuristic weightings for the ATTACK tactic
-    def getWeightsAttack(self, gameState, action):
-        return {'successorScore': 800, 'distanceToFood': -10, 'danger': -1000,
-                'pickupFood': 4000, 'capsuleDist': 700, 'stop': -1000, 'deadEnd': -200,
-                'isPowered': 5000000, 'dropFood': 100, 'holdFood': -20,
-                'distToAlly': -6000, 'pickupCapsule': 5000}
-
-    # Returns heuristic weightings for the HUNT tactic
-    def getWeightHunt(self, gameState, action):
-
-        return {'numInvaders': -100, 'invaderDistance': -10, 'stop': -5000,
-                'reverse': -5000, 'distanceToAlly': -2500}
-
-        # Returns heuristic weightings for the DEFEND tactic
-    def getWeightsDefend(self, gameState, action):
-        return {'numInvaders': -10000, 'invaderDistance': -500, 'stop': -5000,
-                'reverse': -200, 'danger': 3000, 'distanceToAlly': -4000}
-
-    # Returns heuristic weightings for the START tactic
-    def getWeightsStart(self, gameState, action):
-        return {'distToCenter': -1, 'atCenter': 1000}
-
-# Agent that has a bias to moving around the top of the board
-class TopAgent(MainAgent):
-
-    def goToCenter(self, gameState):
-        locations = []
-        self.atCenter = False
-        x = gameState.getWalls().width / 2
-        y = gameState.getWalls().height / 2
-        #0 to x-1 and x to width
-        if self.red:
-            x = x - 1
-        # Set where the centre is
-        self.center = (x, y)
-        maxHeight = gameState.getWalls().height
-
-        # Look for locations to move to that are not walls (favor top positions)
-        for i in xrange(maxHeight - y):
-            if not gameState.hasWall(x, y):
-                locations.append((x, y))
-            y = y + 1
-
-        myPos = gameState.getAgentState(self.index).getPosition()
-        minDist = float('inf')
-        minPos = None
-
-        # Find shortest distance to centre
-        for location in locations:
-            dist = self.getMazeDistance(myPos, location)
-            if dist <= minDist:
-                minDist = dist
-                minPos = location
-
-        self.center = minPos
-
-# Agent that has a bias to moving around the bottom of the board
-class BottomAgent(MainAgent):
-
-    def goToCenter(self, gameState):
-        locations = []
-        self.atCenter = False
-        x = gameState.getWalls().width / 2
-        y = gameState.getWalls().height / 2
-        #0 to x-1 and x to width
-        if self.red:
-            x = x - 1
-        # Set where the centre is
-        self.center = (x, y)
-
-        # Look for locations to move to that are not walls (favor bot positions)
-        for i in xrange(y):
-            if not gameState.hasWall(x, y):
-                locations.append((x, y))
-            y = y - 1
-
-        myPos = gameState.getAgentState(self.index).getPosition()
-        minDist = float('inf')
-        minPos = None
-
-        # Find shortest distance to centre
-        for location in locations:
-            dist = self.getMazeDistance(myPos, location)
-            if dist <= minDist:
-                minDist = dist
-                minPos = location
-
-        self.center = minPos
