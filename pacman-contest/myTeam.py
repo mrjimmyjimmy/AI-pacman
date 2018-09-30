@@ -78,16 +78,15 @@ class ReflexCaptureAgent(CaptureAgent):
         return features * weights
 
 
-
-def nextStep((x,y), direction):
+def nextStep((x, y), direction):
     if direction == Directions.SOUTH:
-        return ((x, y-1), Directions.NORTH)
+        return ((x, y - 1), Directions.NORTH)
     elif direction == Directions.NORTH:
-        return ((x, y+1), Directions.SOUTH)
+        return ((x, y + 1), Directions.SOUTH)
     elif direction == Directions.EAST:
-        return ((x+1, y), Directions.WEST)
+        return ((x + 1, y), Directions.WEST)
     else:
-        return ((x-1,y), Directions.EAST)
+        return ((x - 1, y), Directions.EAST)
 
 
 class OffensiveReflexAgent(ReflexCaptureAgent):
@@ -95,13 +94,15 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     def registerInitialState(self, gameState):
         CaptureAgent.registerInitialState(self, gameState)
 
-        self.weights = {'score': 1.78, 'DisToNearestFood': -6.2, 'disToGhost':9.7,
-                        'disToCapsule': -6.3, 'dots': 0.5,
-                        'stake': -0.5,
-                        'disToBoundary': -3.62, 'deadends':-2000}
+        self.weights = {'score': 1.78261354182, 'DisToNearestFood': -4.91094492098, 'disToGhost': 8.17572535548,
+                        'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
+                        'disToBoundary': -2.94156916302, 'deadends': -10}
+        # self.weights = {'score': 0, 'DisToNearestFood': 0, 'disToGhost':0,
+        #                 'disToCapsule': 0, 'dots': 0,
+        #                 'disToBoundary': 0,'deadends':0}
         self.distancer.getMazeDistances()
 
-        #----------- DEADEND PROCESSING
+        # ----------- DEADEND PROCESSING
         self.deadEnds = {}
 
         neighbors = {}
@@ -112,24 +113,23 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                     walkable.append((i, j))
 
         for (i, j) in walkable:
-            print "walkable ij", (i,j)
+            print "walkable ij", (i, j)
             neighbor = []
             if (i + 1, j) in walkable:
                 neighbor.append(Directions.EAST)
-                print "Adding neighbour:", (i+1, j)
+                print "Adding neighbour:", (i + 1, j)
             if (i - 1, j) in walkable:
                 neighbor.append(Directions.WEST)
-                print "Adding neighbour:", (i-1, j)
+                print "Adding neighbour:", (i - 1, j)
             if (i, j + 1) in walkable:
                 neighbor.append(Directions.NORTH)
-                print "Adding neighbour:", (i, j+1)
+                print "Adding neighbour:", (i, j + 1)
             if (i, j - 1) in walkable:
                 neighbor.append(Directions.SOUTH)
-                print "Adding neighbour:", (i, j-1)
+                print "Adding neighbour:", (i, j - 1)
 
             neighbors[(i,j)] = neighbor
-        print "nebrs 7-13", neighbors[(7,13)]
-        print "nebrs 9-13", neighbors[(9,13)]
+
         for (i,j) in neighbors:
             if len(neighbors[(i,j)]) >=3:
                 print "ij:", (i,j)
@@ -141,10 +141,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                         continue
                     elif len(nextNeighbor) == 1:
                         self.deadEnds[(i,j),direction] = 1
-                        if (i,j) == (8, 13):
-                            print "8-13-1111111", direction
-                            print "8-13 i1j1 revdir", (i1, j1), revdir
-                            print "nextNeighbour", nextNeighbor
+
+
                     else:
                         depth = 1
                         while len(nextNeighbor) == 2:
@@ -157,8 +155,6 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                                 continue
                             elif len(nextNeighbor) == 1:
                                 self.deadEnds[(i, j), direction] = depth
-                                if (i, j) == (8, 13):
-                                    print "8-13-22222222", direction
 
         for deadend in self.deadEnds:
             print "Correct deadends: ", deadend, self.deadEnds[deadend]
@@ -181,8 +177,6 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         for i in range(1, gameState.data.layout.height - 1):
             if not gameState.hasWall(cX, i):
                 self.boundary.append((cX, i))
-        print "boundry:", self.boundary
-
 
         # self.weights = {'score': 0, 'DisToNearestFood': -5, 'disToGhost': 50, 'disToCapsule': -55, 'dots': 50,
         #            'disToBoundary': -50}
@@ -202,7 +196,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
         if util.flipCoin(epislon):
             action = random.choice(actions)
-            self.updateWeights(gameState, action)
+            # self.updateWeights(gameState, action)
             return action
 
         maxQ = -float("inf")
@@ -216,7 +210,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                 maxQaction = action
 
         # self.updateWeights(gameState, maxQaction)
-        print "so i choose:", maxQaction
+        print "====================================]=================so i choose:", maxQaction
         return maxQaction
 
     def getReward(self, gameState, action):
@@ -249,12 +243,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         for a in range(len(self.boundary)):
             disToBoundary = min(disToBoundary, self.getMazeDistance(agentPosition, self.boundary[a]))
 
-        reward += stepCost + 20 * score
-        if disToBoundary > 1 and dots > 1:
-            reward -= 0.01*log(disToBoundary)*log(dots)
-
-        print "get reward:", reward
-        return reward
+        return reward + stepCost + 20 * score - 1 * disToBoundary * dots
 
     def disToNearestGhost(self, gameState):
         agentPosition = gameState.getAgentState(self.index).getPosition()
@@ -275,11 +264,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             if dis < 6:
                 return dis
         else:
-            dis = []
-            # dis = (dis.append(gameState.getAgentDistances()[index]) for index in self.agent.getOpponents(gameState))
-            for index in self.getOpponents(gameState):
-                dis.append(gameState.getAgentDistances()[index])
-            return min(dis)
+            return 6
 
     def evl(self, gameState):
         """
@@ -291,11 +276,17 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
     def evl2(self, gameState, action):
         features = self.getFeatures(gameState, action)
+        print features
+        print self.weights
         return features * self.weights
+
+    # def legalPosition(self,previousPosition,nextPosition):
+
 
     def getFeatures(self, previous, action):
         features = util.Counter()
         gameState = self.getSuccessor(previous, action)
+        previousPosition = previous.getAgentState(self.index).getPosition()
         agentPosition = gameState.getAgentState(self.index).getPosition()
 
         # ---------------------feature 1: score----------------
@@ -322,6 +313,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                 enemies.append(enemyState)
 
         if len(enemies) > 0:
+            print "FFFFFFFFFFFFFFFFFFFF Length of enemies > 0"
             toEnemies = []
             for e in enemies:
                 enemyPos = e.getPosition()
@@ -329,14 +321,21 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             # closest = min(position, key=lambda x: self.agent.getMazeDistance(agentPosition, x))
 
             dis = min(toEnemies)
-            if dis < 6:
-                features['disToGhost'] = dis
+
+            features['disToGhost'] = dis
+
         else:
             dis = []
             # dis = (dis.append(gameState.getAgentDistances()[index]) for index in self.agent.getOpponents(gameState))
             for index in self.getOpponents(gameState):
                 dis.append(gameState.getAgentDistances()[index])
-            features['disToGhost'] = min(dis)
+            print "FFFFFFFFFFFFFFFFFFF length of enemies < 0, dis[]:", dis
+            if min(dis) <= 6 :
+                features['disToGhost'] = 6
+            else:
+                features['disToGhost'] = min(dis)
+
+
 
         # ---------------------feature 4: dis to closest capsule----------------
         capsule = self.getCapsules(gameState)
@@ -353,17 +352,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         disToBoundary = 99999
         for a in range(len(self.boundary)):
             disToBoundary = min(disToBoundary, self.getMazeDistance(agentPosition, self.boundary[a]))
-        # features['disToBoundary'] = disToBoundary
-        currentX, _ = agentPosition
-        cX, _ = self.boundary[0]
-        if (self.red and currentX <= cX) or ((not self.red) and currentX >= cX):
-            features['disToBoundary'] = disToBoundary
-            features['stake'] = 0
-        else:
-            features['disToBoundary'] = 0
-            features['stake'] = disToBoundary * features['dots']
-
-
+        features['disToBoundary'] = disToBoundary
         # ---------------------feature 7: dis to opponent's attackers----------------
         #  need more work on this feature
 
@@ -373,11 +362,10 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
         #----------------------feature 8: deadends-----------
         features['deadends'] = 0
-        previousPos = previous.getAgentState(self.index).getPosition()
-        if self.deadEnds.has_key((previousPos, action)) and self.deadEnds[(previousPos, action)] * 2 >= features['disToGhost']-1 > 0:
-            print "!!!!!!!!!!DEADEND WARNING!!!!!!!!!!!!!!", previousPos, action
+        if self.deadEnds.has_key((previous.getAgentState(self.index).getPosition(), action)) and self.deadEnds[
+            (previous.getAgentState(self.index).getPosition(), action)] * 2 >= features['disToGhost'] >0:
             features['deadends'] = 100
-        features.divideAll(10)
+        # features.divideAll(10)
 
         return features
 
@@ -412,10 +400,10 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
 
         for f in features:
-            print "feature value:", f, features[f]
+            print "feature and weight:", f, features[f]
 
             self.weights[f] += alpha * (reward + discount * maxQ - q) * features[f]
-            print "new weight for", f, self.weights[f]
+            print f, self.weights[f]
 
 
 
