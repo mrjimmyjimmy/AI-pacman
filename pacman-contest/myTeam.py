@@ -16,6 +16,7 @@ import baselineTeam
 
 def createTeam(firstIndex, secondIndex, isRed,
                first='OffensiveReflexAgent', second='DefensiveReflexAgent'):
+
     """
     This function should return a list of two agents that will form the
     team, initialized using firstIndex and secondIndex as their agent
@@ -153,13 +154,13 @@ class ReflexCaptureAgent(CaptureAgent):
         else:
             return successor
 
-    def evaluate(self, gameState, action):
-        """
-        Computes a linear combination of features and feature weights
-        """
-        features = self.getFeatures(gameState, action)
-        weights = self.getWeights(gameState, action)
-        return features * weights
+    # def evaluate(self, gameState, action):
+    #     """
+    #     Computes a linear combination of features and feature weights
+    #     """
+    #     features = self.getFeatures(gameState, action)
+    #     weights = self.getWeights(gameState, action)
+    #     return features * weights
 
     def getFeaturesOffense(self, previous, action):
         features = util.Counter()
@@ -209,17 +210,7 @@ class ReflexCaptureAgent(CaptureAgent):
                 features['disToGhost'] = 12
         else:
             features['disToGhost'] = 12
-            # dis = []
-            # # dis = (dis.append(gameState.getAgentDistances()[index]) for index in self.agent.getOpponents(gameState))
-            # for index in self.getOpponents(gameState):
-            #     dis.append(gameState.getAgentDistances()[index])
-            # print "FFFFFFFFFFFFFFFFFFF length of enemies < 0, dis[]:", dis
-            # if min(dis) <= 6 :
-            #     features['disToGhost'] = 6
-            # else:
-            #     features['disToGhost'] = min(dis)
 
-        # features['disToGhost'] = 1/features['disToGhost']
 
         # ---------------------feature 4: dis to closest capsule----------------
         capsule = self.getCapsules(gameState)
@@ -501,15 +492,12 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
 
+
     def atCenter(self, myPos):
-        minDis = []
-        for boundary in self.boundary:
-            minDis.append(self.getMazeDistance(myPos, boundary))
-            minDis.sort()
-        if minDis[0] > 2:
-            return False
-        else:
+        if myPos in self.boundary:
             return True
+        else:
+            return False
 
     # return a list of (x,y), shows the enemies positions
     def getEnemy(self, gameState):
@@ -528,7 +516,6 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         minDist = None
         if len(pos) > 0:
             minDist = 6
-            # myPos = gameState.getAgentPosition(self.index)
             for i, p in pos:
                 dist = self.getMazeDistance(p, myPos)
                 if dist < minDist:
@@ -576,76 +563,9 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         Computes a linear combination of features and feature weights
         """
         return {
-            'inital': self.getFeatureInital(gameState, action) * self.getWeightsInital(gameState, action),
             'defence': self.getFeaturesDefence(gameState, action) * self.getWeightsDefence(gameState, action),
             'offence': self.getFeaturesOffense(gameState, action) * self.getWeightOffence(gameState, action),
         }.get(agentType)
-
-    # def getFeatureOffence(self, gameState, action):
-    #
-    #     # initial features
-    #     features = util.Counter()
-    #     successor = self.getSuccessor(gameState, action)
-    #
-    #     # get the position
-    #     myState = successor.getAgentState(self.index)
-    #     myPos = myState.getPosition()
-    #
-    #     # ---------------------feature 1: score----------------
-    #     features['score'] = self.getScore(gameState)
-    #     # ---------------------feature 2: distance to closest food----------------
-    #     food = self.getFood(gameState).asList()
-    #     if len(food) > 0:
-    #         dis = []
-    #         for f in food:
-    #             dis.append(self.getMazeDistance(myPos, f))
-    #         minDis = min(dis)
-    #         features['DisToNearestFood'] = minDis
-    #
-    #     # ---------------------feature 3: dis to closest ghost----------------
-    #     enemies = []
-    #     for e in self.getOpponents(gameState):
-    #         enemyState = gameState.getAgentState(e)
-    #         if not enemyState.isPacman and not enemyState.getPosition() is None:
-    #             enemies.append(enemyState)
-    #
-    #     if len(enemies) > 0:
-    #         toEnemies = []
-    #         for e in enemies:
-    #             enemyPos = e.getPosition()
-    #             toEnemies.append(self.getMazeDistance(myPos, enemyPos))
-    #         # closest = min(position, key=lambda x: self.agent.getMazeDistance(agentPosition, x))
-    #
-    #         dis = min(toEnemies)
-    #         if dis < 6:
-    #             features['disToGhost'] = dis
-    #     else:
-    #         dis = []
-    #         # dis = (dis.append(gameState.getAgentDistances()[index]) for index in self.agent.getOpponents(gameState))
-    #         for index in self.getOpponents(gameState):
-    #             dis.append(gameState.getAgentDistances()[index])
-    #         features['disToGhost'] = min(dis)
-    #
-    #     # ---------------------feature 4: dis to closest capsule----------------
-    #     capsule = self.getCapsules(gameState)
-    #     if len(capsule) == 0:
-    #         features['disToCapsule'] = 0
-    #     else:
-    #         dis = []
-    #         for c in capsule:
-    #             dis.append(self.getMazeDistance(myPos, c))
-    #         features['disToCapsule'] = min(dis)
-    #     # ---------------------feature 5: carrying----------------
-    #     features['dots'] = gameState.getAgentState(self.index).numCarrying
-    #     # ---------------------feature 6: dis to boundary----------------
-    #     disToBoundary = 99999
-    #     for a in range(len(self.boundary)):
-    #         disToBoundary = min(disToBoundary, self.getMazeDistance(myPos, self.boundary[a]))
-    #     features['disToBoundary'] = disToBoundary
-    #     # ---------------------feature 7: dis to opponent's attackers----------------
-    #     #  need more work on this feature
-    #
-    #     return features
 
     def getWeightOffence(self, gameState, action):
 
@@ -653,25 +573,6 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
                 'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
                 'disToBoundary': -2.94156916302, 'deadends': -10}
 
-    def getFeatureInital(self, gameState, action):
-
-        # inital features
-        features = util.Counter()
-        successor = self.getSuccessor(gameState, action)
-
-        # get the position
-        myState = successor.getAgentState(self.index)
-        myPos = myState.getPosition()
-        disToBoundary = 99999
-        for a in range(len(self.boundary)):
-            disToBoundary = min(disToBoundary, self.getMazeDistance(myPos, self.boundary[a]))
-        features['distToBoundary'] = disToBoundary
-
-        return features
-
-    def getWeightsInital(self, gameState, action):
-
-        return {'disToBoundary': 100}
 
     def getFeaturesDefence(self, gameState, action):
 
@@ -754,7 +655,6 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         values = [self.evaluate(gameState, a, agentType) for a in actions]
         maxValue = max(values)
         bestActions = [a for a, v in zip(actions, values) if v == maxValue]
-        # print '------------------', agentType
         return random.choice(bestActions)
 
 
