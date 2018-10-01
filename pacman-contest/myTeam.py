@@ -242,6 +242,9 @@ class ReflexCaptureAgent(CaptureAgent):
 
         return features
 
+    # a list store current food lost
+    foodLostList = []
+
 
 def nextStep((x, y), direction):
     if direction == Directions.SOUTH:
@@ -531,10 +534,12 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         currentState = self.getCurrentObservation()
         previousState = self.getPreviousObservation()
         currentFood = self.getFoodYouAreDefending(currentState)
+        currNum = len(currentFood.asList())
         previousFood = None
         if previousState != None:
             previousFood = self.getFoodYouAreDefending(previousState)
-            if not currentFood == previousFood:
+            self.preNum = len(previousFood.asList())
+            if not currentFood == previousFood and currNum < self.preNum:
                 food = self.differInMatrax(currentFood, previousFood)
                 return food
 
@@ -610,18 +615,28 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
         if action == rev: features['reverse'] = 1
 
+
+        # ??? 应该加一个list存贮状态
         # get the distance where the food lost
+        # if not self.foodLostPosition() == None:
+        #
+        #     self.foodLost = self.foodLostPosition()
+        #     for f in self.foodLost:
+        #         minDistance = self.getMazeDistance(myPos, f)
+        #         features['lostFoodDistance'] = minDistance
         if not self.foodLostPosition() == None:
             food = self.foodLostPosition()
             if 0 < len(food) < 3:
                 food = food[0]
                 minDistance = self.getMazeDistance(myPos, food)
-                self.foodLost = minDistance
+
                 features['lostFoodDistance'] = minDistance
 
         disToBoundary = 99999
         for a in range(len(self.boundary)):
             disToBoundary = min(disToBoundary, self.getMazeDistance(myPos, self.boundary[a]))
+
+        # ??? 应该加一个限定条件，在对方半场
         features['distToBoundary'] = disToBoundary
 
         return features
