@@ -63,83 +63,22 @@ class ReflexCaptureAgent(CaptureAgent):
         self.distancer.getMazeDistances()
 
         # ----------- DEADEND PROCESSING
-        self.deadEnds = {}
+        self.deadEnds = getDeadEnds(gameState, self.red)
 
-        neighbors = {}
-        walkable = []
-        for i in range(1, gameState.data.layout.width - 1):
-            for j in range(1, gameState.data.layout.height - 1):
-                if not gameState.hasWall(i, j):
-                    walkable.append((i, j))
-
-        for (i, j) in walkable:
-            print "walkable ij", (i, j)
-            neighbor = []
-            if (i + 1, j) in walkable:
-                neighbor.append(Directions.EAST)
-                print "Adding neighbour:", (i + 1, j)
-            if (i - 1, j) in walkable:
-                neighbor.append(Directions.WEST)
-                print "Adding neighbour:", (i - 1, j)
-            if (i, j + 1) in walkable:
-                neighbor.append(Directions.NORTH)
-                print "Adding neighbour:", (i, j + 1)
-            if (i, j - 1) in walkable:
-                neighbor.append(Directions.SOUTH)
-                print "Adding neighbour:", (i, j - 1)
-
-            neighbors[(i, j)] = neighbor
-
-        for (i, j) in neighbors:
-            if len(neighbors[(i, j)]) >= 3:
-                print "ij:", (i, j)
-                print "neighbours:", neighbors[(i, j)]
-                for direction in neighbors[(i, j)]:
-                    (i1, j1), revdir = nextStep((i, j), direction)
-                    nextNeighbor = neighbors[(i1, j1)]
-                    if len(nextNeighbor) >= 3:
-                        continue
-                    elif len(nextNeighbor) == 1:
-                        self.deadEnds[(i, j), direction] = 1
-
-
-                    else:
-                        depth = 1
-                        while len(nextNeighbor) == 2:
-                            depth += 1
-                            nextNeighbor.remove(revdir)
-                            nextNeighbor.append(revdir)
-                            (i1, j1), revdir = nextStep((i1, j1), nextNeighbor[0])
-                            nextNeighbor = neighbors[(i1, j1)]
-                            if len(nextNeighbor) >= 3:
-                                continue
-                            elif len(nextNeighbor) == 1:
-                                self.deadEnds[(i, j), direction] = depth
-
-        for deadend in self.deadEnds:
-            print "Correct deadends: ", deadend, self.deadEnds[deadend]
-
-        # -----------
-
-        print "Map width:", gameState.data.layout.width
+        # for deadend in self.deadEnds:
+        #     print "Correct deadends: ", deadend, self.deadEnds[deadend]
+        #
+        #
+        # print "Map width:", gameState.data.layout.width
         if self.red:
             cX = (gameState.data.layout.width - 2) / 2
-            self.deadEnds = dict((((x, y), dir), self.deadEnds[((x, y), dir)]) for ((x, y), dir) in self.deadEnds if
-                                 x > cX)  # deadend filter
-            print "blue deadends:", self.deadEnds
         else:
             cX = ((gameState.data.layout.width - 2) / 2) + 1
-            self.deadEnds = dict((((x, y), dir), self.deadEnds[((x, y), dir)]) for ((x, y), dir) in self.deadEnds if
-                                 x < cX)  # deadend filter
-            print "red deadends:", self.deadEnds
 
         self.boundary = []
         for i in range(1, gameState.data.layout.height - 1):
             if not gameState.hasWall(cX, i):
                 self.boundary.append((cX, i))
-
-        # self.weights = {'score': 0, 'DisToNearestFood': -5, 'disToGhost': 50, 'disToCapsule': -55, 'dots': 50,
-        #            'disToBoundary': -50}
 
     def getSuccessor(self, gameState, action):
         """
@@ -196,7 +135,7 @@ class ReflexCaptureAgent(CaptureAgent):
                 enemies.append(enemyState)
 
         if len(enemies) > 0:
-            print "FFFFFFFFFFFFFFFFFFFF Length of enemies > 0"
+            # print "FFFFFFFFFFFFFFFFFFFF Length of enemies > 0"
             toEnemies = []
             for e in enemies:
                 enemyPos = e.getPosition()
@@ -252,6 +191,7 @@ class ReflexCaptureAgent(CaptureAgent):
         return features
 
 
+
 def nextStep((x, y), direction):
     if direction == Directions.SOUTH:
         return ((x, y - 1), Directions.NORTH)
@@ -278,75 +218,12 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         self.distancer.getMazeDistances()
 
         # ----------- DEADEND PROCESSING
-        self.deadEnds = {}
+        self.deadEnds = getDeadEnds(gameState, self.red)
 
-        neighbors = {}
-        walkable = []
-        for i in range(1, gameState.data.layout.width - 1):
-            for j in range(1, gameState.data.layout.height - 1):
-                if not gameState.hasWall(i, j):
-                    walkable.append((i, j))
-
-        for (i, j) in walkable:
-            print "walkable ij", (i, j)
-            neighbor = []
-            if (i + 1, j) in walkable:
-                neighbor.append(Directions.EAST)
-                print "Adding neighbour:", (i + 1, j)
-            if (i - 1, j) in walkable:
-                neighbor.append(Directions.WEST)
-                print "Adding neighbour:", (i - 1, j)
-            if (i, j + 1) in walkable:
-                neighbor.append(Directions.NORTH)
-                print "Adding neighbour:", (i, j + 1)
-            if (i, j - 1) in walkable:
-                neighbor.append(Directions.SOUTH)
-                print "Adding neighbour:", (i, j - 1)
-
-            neighbors[(i, j)] = neighbor
-
-        for (i, j) in neighbors:
-            if len(neighbors[(i, j)]) >= 3:
-                print "ij:", (i, j)
-                print "neighbours:", neighbors[(i, j)]
-                for direction in neighbors[(i, j)]:
-                    (i1, j1), revdir = nextStep((i, j), direction)
-                    nextNeighbor = neighbors[(i1, j1)]
-                    if len(nextNeighbor) >= 3:
-                        continue
-                    elif len(nextNeighbor) == 1:
-                        self.deadEnds[(i, j), direction] = 1
-
-
-                    else:
-                        depth = 1
-                        while len(nextNeighbor) == 2:
-                            depth += 1
-                            nextNeighbor.remove(revdir)
-                            nextNeighbor.append(revdir)
-                            (i1, j1), revdir = nextStep((i1, j1), nextNeighbor[0])
-                            nextNeighbor = neighbors[(i1, j1)]
-                            if len(nextNeighbor) >= 3:
-                                continue
-                            elif len(nextNeighbor) == 1:
-                                self.deadEnds[(i, j), direction] = depth
-
-        for deadend in self.deadEnds:
-            print "Correct deadends: ", deadend, self.deadEnds[deadend]
-
-        # -----------
-
-        print "Map width:", gameState.data.layout.width
         if self.red:
             cX = (gameState.data.layout.width - 2) / 2
-            self.deadEnds = dict((((x, y), dir), self.deadEnds[((x, y), dir)]) for ((x, y), dir) in self.deadEnds if
-                                 x > cX)  # deadend filter
-            print "blue deadends:", self.deadEnds
         else:
             cX = ((gameState.data.layout.width - 2) / 2) + 1
-            self.deadEnds = dict((((x, y), dir), self.deadEnds[((x, y), dir)]) for ((x, y), dir) in self.deadEnds if
-                                 x < cX)  # deadend filter
-            print "red deadends:", self.deadEnds
 
         self.boundary = []
         for i in range(1, gameState.data.layout.height - 1):
@@ -362,8 +239,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         """
         epislon = 0  # the chanse to randomly choose an action - going to 0 at last
 
-        print "agent:", self
-        print "agent index", self.index
+        # print "agent:", self
+        # print "agent index", self.index
         # return MCTsearch(gameState, self, depth=5)
 
         actions = gameState.getLegalActions(self.index)
@@ -378,14 +255,14 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         maxQaction = None
         for action in actions:
             qval = self.evl2(gameState, action)
-            print "action", action
-            print qval
+            # print "action", action
+            # print qval
             if qval >= maxQ:
                 maxQ = qval
                 maxQaction = action
 
         # self.updateWeights(gameState, maxQaction)
-        print "====================================]=================so i choose:", maxQaction
+        # print "====================================]=================so i choose:", maxQaction
         return maxQaction
 
     def getReward(self, gameState, action):
@@ -509,10 +386,10 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         q = self.evl2(gameState, Directions.STOP)
 
         for f in features:
-            print "feature and weight:", f, features[f]
+            # print "feature and weight:", f, features[f]
 
             self.weights[f] += alpha * (reward + discount * maxQ - q) * features[f]
-            print f, self.weights[f]
+            # print f, self.weights[f]
 
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
@@ -698,10 +575,117 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         maxValue = max(values)
         bestActions = [a for a, v in zip(actions, values) if v == maxValue]
 
-        print agentType
+        # print agentType
         return random.choice(bestActions)
 
 
+
+
+
+# Takes a coord and a direction(NEWS), returns the next position and the reverse direction
+def nextStep((x, y), direction):
+    if direction == Directions.SOUTH:
+        return ((x, y - 1), Directions.NORTH)
+    elif direction == Directions.NORTH:
+        return ((x, y + 1), Directions.SOUTH)
+    elif direction == Directions.EAST:
+        return ((x + 1, y), Directions.WEST)
+    else:
+        return ((x - 1, y), Directions.EAST)
+
+
+def getDeadEnds(gameState, isRed):
+
+    # need to consider food and depth
+
+    deadEnds = {}
+    neighbors = {}
+    walkable = []
+
+    for i in range(1, gameState.data.layout.width - 1):
+        for j in range(1, gameState.data.layout.height - 1):
+            if not gameState.hasWall(i, j):
+                walkable.append((i, j))
+
+    for (i, j) in walkable:
+        neighbor = []
+        if (i + 1, j) in walkable:
+            neighbor.append(Directions.EAST)
+        if (i - 1, j) in walkable:
+            neighbor.append(Directions.WEST)
+        if (i, j + 1) in walkable:
+            neighbor.append(Directions.NORTH)
+        if (i, j - 1) in walkable:
+            neighbor.append(Directions.SOUTH)
+
+        neighbors[(i, j)] = neighbor
+
+    for (i, j) in neighbors:
+        if len(neighbors[(i, j)]) >= 3:
+            for direction in neighbors[(i, j)]:
+                (i1, j1), revdir = nextStep((i, j), direction)
+                nextNeighbor = neighbors[(i1, j1)]
+                if len(nextNeighbor) >= 3:
+                    continue
+                elif len(nextNeighbor) == 1:
+                    deadEnds[(i, j), direction] = 1
+
+
+                else:
+                    depth = 1
+                    while len(nextNeighbor) == 2:
+                        depth += 1
+                        nextNeighbor.remove(revdir)
+                        nextNeighbor.append(revdir)
+                        (i1, j1), revdir = nextStep((i1, j1), nextNeighbor[0])
+                        nextNeighbor = neighbors[(i1, j1)]
+                        if len(nextNeighbor) >= 3:
+                            continue
+                        elif len(nextNeighbor) == 1:
+                            deadEnds[(i, j), direction] = depth
+
+    # print "old deadends:", deadEnds
+    hasNew = True
+    while hasNew:
+        hasNew = False
+
+        deadEnd_coords = {}
+        deadEnd_potential = []
+
+        for (i, j), dir in deadEnds:
+            if not deadEnd_coords.has_key((i,j)):
+                deadEnd_coords[(i,j)] = 0
+            else:
+                deadEnd_potential.append((i,j))
+            deadEnd_coords[(i,j)] += deadEnds[(i,j),dir]
+
+
+        for (i, j) in deadEnd_potential:
+            waystodeadend = []
+            for neighbor in neighbors[(i,j)]:
+                if ((i,j), neighbor) not in deadEnds:
+                    # print "adds to ways to deadend:",i, j, neighbor
+                    waystodeadend.append(nextStep((i,j),neighbor))
+
+            if len(waystodeadend) == 1:
+                (x, y), direction = waystodeadend[0]
+                if ((x, y), direction) not in deadEnds:
+                    hasNew = True
+                    # print "new found:", x, y, direction, 1+ deadEnd_coords[(i,j)]
+                    deadEnds[(x,y),direction] = 1 + deadEnd_coords[(i,j)]
+                    # print "new deadends", deadEnds
+
+
+    if isRed:
+        cX = (gameState.data.layout.width - 2) / 2
+        deadEnds = dict(
+            (((x, y), dir), deadEnds[((x, y), dir)]) for ((x, y), dir) in deadEnds if x > cX)  # deadend filter
+    else:
+        cX = ((gameState.data.layout.width - 2) / 2) + 1
+        deadEnds = dict(
+            (((x, y), dir), deadEnds[((x, y), dir)]) for ((x, y), dir) in deadEnds if x < cX)  # deadend filter
+
+    return deadEnds
 
 
 
