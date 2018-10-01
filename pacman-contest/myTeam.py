@@ -351,8 +351,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                         'disToBoundary': -6.94156916302, 'deadends': -10}
 
 
-        print features
-        print newWeights
+        # print features
+        # print newWeights
         return features * newWeights
 
 
