@@ -16,7 +16,6 @@ import baselineTeam
 
 def createTeam(firstIndex, secondIndex, isRed,
                first='OffensiveReflexAgent', second='DefensiveReflexAgent'):
-
     """
     This function should return a list of two agents that will form the
     team, initialized using firstIndex and secondIndex as their agent
@@ -55,8 +54,8 @@ class ReflexCaptureAgent(CaptureAgent):
         CaptureAgent.registerInitialState(self, gameState)
 
         self.weights = {'score': 1.78261354182, 'DisToNearestFood': -4.91094492098, 'disToGhost': 8.17572535548,
-                'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
-                'disToBoundary': -2.94156916302, 'deadends': -10}
+                        'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
+                        'disToBoundary': -2.94156916302, 'deadends': -10}
 
         # self.weights = {'score': 0, 'DisToNearestFood': 0, 'disToGhost':0,
         #                 'disToCapsule': 0, 'dots': 0,
@@ -154,13 +153,13 @@ class ReflexCaptureAgent(CaptureAgent):
         else:
             return successor
 
-    # def evaluate(self, gameState, action):
-    #     """
-    #     Computes a linear combination of features and feature weights
-    #     """
-    #     features = self.getFeatures(gameState, action)
-    #     weights = self.getWeights(gameState, action)
-    #     return features * weights
+    def evaluate(self, gameState, action):
+        """
+        Computes a linear combination of features and feature weights
+        """
+        features = self.getFeatures(gameState, action)
+        weights = self.getWeights(gameState, action)
+        return features * weights
 
     def getFeaturesOffense(self, previous, action):
         features = util.Counter()
@@ -210,7 +209,17 @@ class ReflexCaptureAgent(CaptureAgent):
                 features['disToGhost'] = 12
         else:
             features['disToGhost'] = 12
+            # dis = []
+            # # dis = (dis.append(gameState.getAgentDistances()[index]) for index in self.agent.getOpponents(gameState))
+            # for index in self.getOpponents(gameState):
+            #     dis.append(gameState.getAgentDistances()[index])
+            # print "FFFFFFFFFFFFFFFFFFF length of enemies < 0, dis[]:", dis
+            # if min(dis) <= 6 :
+            #     features['disToGhost'] = 6
+            # else:
+            #     features['disToGhost'] = min(dis)
 
+        # features['disToGhost'] = 1/features['disToGhost']
 
         # ---------------------feature 4: dis to closest capsule----------------
         capsule = self.getCapsules(gameState)
@@ -242,9 +251,6 @@ class ReflexCaptureAgent(CaptureAgent):
 
         return features
 
-    # a list store current food lost
-    foodLostList = []
-
 
 def nextStep((x, y), direction):
     if direction == Directions.SOUTH:
@@ -263,8 +269,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         CaptureAgent.registerInitialState(self, gameState)
 
         self.weights = {'score': 1.78261354182, 'DisToNearestFood': -4.91094492098, 'disToGhost': 8.17572535548,
-                'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
-                'disToBoundary': -2.94156916302, 'deadends': -10}
+                        'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
+                        'disToBoundary': -2.94156916302, 'deadends': -10}
 
         # self.weights = {'score': 0, 'DisToNearestFood': 0, 'disToGhost':0,
         #                 'disToCapsule': 0, 'dots': 0,
@@ -495,6 +501,9 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
 
+    #################
+    # help function #
+    #################
 
     def atCenter(self, myPos):
         if myPos in self.boundary:
@@ -519,6 +528,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         minDist = None
         if len(pos) > 0:
             minDist = 6
+            # myPos = gameState.getAgentPosition(self.index)
             for i, p in pos:
                 dist = self.getMazeDistance(p, myPos)
                 if dist < minDist:
@@ -534,12 +544,13 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         currentState = self.getCurrentObservation()
         previousState = self.getPreviousObservation()
         currentFood = self.getFoodYouAreDefending(currentState)
-        currNum = len(currentFood.asList())
+        self.currFoodNum = len(currentFood.asList())
+
         previousFood = None
         if previousState != None:
             previousFood = self.getFoodYouAreDefending(previousState)
-            self.preNum = len(previousFood.asList())
-            if not currentFood == previousFood and currNum < self.preNum:
+            self.preFoodNum = len(previousFood.asList())
+            if not currentFood == previousFood and self.currFoodNum < self.preFoodNum:
                 food = self.differInMatrax(currentFood, previousFood)
                 return food
 
@@ -568,9 +579,12 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         Computes a linear combination of features and feature weights
         """
         return {
+            'inital': self.getFeatureInital(gameState, action) * self.getWeightsInital(gameState, action),
             'defence': self.getFeaturesDefence(gameState, action) * self.getWeightsDefence(gameState, action),
             'offence': self.getFeaturesOffense(gameState, action) * self.getWeightOffence(gameState, action),
         }.get(agentType)
+
+
 
     def getWeightOffence(self, gameState, action):
 
@@ -578,6 +592,25 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
                 'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
                 'disToBoundary': -2.94156916302, 'deadends': -10}
 
+    def getFeatureInital(self, gameState, action):
+
+        # inital features
+        features = util.Counter()
+        successor = self.getSuccessor(gameState, action)
+
+        # get the position
+        myState = successor.getAgentState(self.index)
+        myPos = myState.getPosition()
+        disToBoundary = 99999
+        for a in range(len(self.boundary)):
+            disToBoundary = min(disToBoundary, self.getMazeDistance(myPos, self.boundary[a]))
+        features['distToBoundary'] = disToBoundary
+
+        return features
+
+    def getWeightsInital(self, gameState, action):
+
+        return {'disToBoundary': 100}
 
     def getFeaturesDefence(self, gameState, action):
 
@@ -615,35 +648,32 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
         if action == rev: features['reverse'] = 1
 
-
-        # ??? 应该加一个list存贮状态
         # get the distance where the food lost
-        # if not self.foodLostPosition() == None:
-        #
-        #     self.foodLost = self.foodLostPosition()
-        #     for f in self.foodLost:
-        #         minDistance = self.getMazeDistance(myPos, f)
-        #         features['lostFoodDistance'] = minDistance
         if not self.foodLostPosition() == None:
-            food = self.foodLostPosition()
-            if 0 < len(food) < 3:
-                food = food[0]
-                minDistance = self.getMazeDistance(myPos, food)
+            food = self.foodLostPosition()[0]
+            # food = food[0]
+            minDistance = self.getMazeDistance(myPos, food)
 
-                features['lostFoodDistance'] = minDistance
+            self.foodLost = []
+            self.foodLost.append(minDistance)
+            if features['invaderDistance'] > 0:
+                features['lostFoodDistance'] = 0
+            else:
+                features['lostFoodDistance'] = self.foodLost[0]
 
-        disToBoundary = 99999
-        for a in range(len(self.boundary)):
-            disToBoundary = min(disToBoundary, self.getMazeDistance(myPos, self.boundary[a]))
-
-        # ??? 应该加一个限定条件，在对方半场
-        features['distToBoundary'] = disToBoundary
+        # disToBoundary = 99999
+        # for a in range(len(self.boundary)):
+        #     disToBoundary = min(disToBoundary, self.getMazeDistance(myPos, self.boundary[a]))
+        #     if myState.isPacman:
+        #         features['distToBoundary'] = disToBoundary
+        #     else:
+        #         features['distToBoundary'] = 0
 
         return features
 
     def getWeightsDefence(self, gameState, action):
         return {'numInvaders': -1000, 'onDefense': 1, 'invaderDistance': -10000, 'stop': -1, 'reverse': -1, 'danger': 1
-            , 'lostFoodDistance': -100}
+            , 'lostFoodDistance': -100,}
 
     def chooseAction(self, gameState):
         """
@@ -659,8 +689,8 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         """
         switch agent type here
         """
+        # there is no enemy, try to catch some food
         agentType = 'offence'
-        # agentType = 'defence'
 
         # there is no enemy, try to catch some food
         for enemy in opponents:
