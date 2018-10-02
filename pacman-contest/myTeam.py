@@ -45,7 +45,7 @@ class ReflexCaptureAgent(CaptureAgent):
     def legalPosition(self, previousPosition, nextPosition):
         x, y = previousPosition
         m, n = nextPosition
-        if (m == x + 1 or m == x - 1) and (n == y + 1 or n == y - 1):
+        if (m==x and (n == y + 1 or n == y - 1)) or (n == y and (m == x+1 or m == x -1)):
             return True
         else:
             return False
@@ -105,7 +105,7 @@ class ReflexCaptureAgent(CaptureAgent):
         gameState = self.getSuccessor(previous, action)
         previousPosition = previous.getAgentState(self.index).getPosition()
         agentPosition = gameState.getAgentState(self.index).getPosition()
-        if self.legalPosition(previousPosition, agentPosition):
+        if not self.legalPosition(previousPosition, agentPosition):  # back to born place
             features['disToGhost'] = -100
             return features
 
@@ -160,14 +160,18 @@ class ReflexCaptureAgent(CaptureAgent):
         # features['disToGhost'] = 1/features['disToGhost']
 
         # ---------------------feature 4: dis to closest capsule----------------
+        oldCapsule = self.getCapsules(previous)
         capsule = self.getCapsules(gameState)
-        if len(capsule) == 0:
-            features['disToCapsule'] = 0
+        if (int(x),int(y)) in oldCapsule:
+            features['disToCapsule'] = 0   # eat capsule from previous state via action to the gamestate
         else:
-            dis = []
-            for c in capsule:
-                dis.append(self.getMazeDistance(agentPosition, c))
-            features['disToCapsule'] = min(dis)
+            if len(capsule) == 0:
+                features['disToCapsule'] = 0
+            else:
+                dis = []
+                for c in capsule:
+                    dis.append(self.getMazeDistance(agentPosition, c))
+                features['disToCapsule'] = min(dis)
         # ---------------------feature 5: carrying----------------
         features['dots'] = gameState.getAgentState(self.index).numCarrying
         features['oldDots'] = previous.getAgentState(self.index).numCarrying
@@ -187,6 +191,8 @@ class ReflexCaptureAgent(CaptureAgent):
             (previous.getAgentState(self.index).getPosition(), action)] * 2 >= features['disToGhost'] - 1 > 0:
             features['deadends'] = 100
         # features.divideAll(10)
+        #------------------------feature 9 : timeLeft
+        features['timeLeft'] = previous.data.timeleft
 
         return features
 
@@ -255,14 +261,14 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         maxQaction = None
         for action in actions:
             qval = self.evl2(gameState, action)
-            # print "action", action
-            # print qval
+            print "action", action
+            print qval
             if qval >= maxQ:
                 maxQ = qval
                 maxQaction = action
 
         # self.updateWeights(gameState, maxQaction)
-        # print "====================================]=================so i choose:", maxQaction
+        print "====================================]=================so i choose:", maxQaction
         return maxQaction
 
     def getReward(self, gameState, action):
@@ -330,10 +336,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         weights = self.getWeights(gameState, action)
         newWeights = copy.deepcopy(weights)
 
-        # if features['dots'] == 0:
-        #     newWeights['disToBoundary'] *= 0.7
-        # else:
-        #     newWeights['disToBoundary'] *= (1.0 + float(features['dots']) / 83)
+
 
         if features['dots'] < 8 or features['oldDots'] ==7:
             newWeights = {'score': 20.78261354182, 'DisToNearestFood': -7.91094492098, 'disToGhost': 8.17572535548,
@@ -350,9 +353,21 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                         'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
                         'disToBoundary': -6.94156916302, 'deadends': -10}
 
+        if features['disToGhost'] == 1 and features['score'] > 4:
+            newWeights['disToGhost'] = 1 # chang mian shang ying, jiu shao wei pa gui yi dian
 
-        # print features
-        # print newWeights
+        # if features['disToGhost'] <= 3 and features['isPacman']:
+        #     newWeights['disToCapsule'] = -8
+
+        # if features['timeLeft']<250 and features['dots'] != 0 and features['oldDots'] != 0:
+        #     newWeights['disToBoundary'] = (-3/500)*features['timeLeft']
+
+        if features['timeLeft']<200:
+            newWeights['disToBoundary'] = -10
+
+
+        print features
+        print newWeights
         return features * newWeights
 
 
