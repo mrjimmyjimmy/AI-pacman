@@ -579,6 +579,23 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         return random.choice(bestActions)
 
 
+    ###########
+    # Min-Max #
+    ###########
+
+    def maxValue(self):
+
+        return
+
+    def minValue(self):
+
+        return
+
+    def evlMinMax(self):
+
+        return
+
+
 
 
 
@@ -686,6 +703,9 @@ def getDeadEnds(gameState, isRed):
             (((x, y), dir), deadEnds[((x, y), dir)]) for ((x, y), dir) in deadEnds if x < cX)  # deadend filter
 
     return deadEnds
+
+
+
 
 
 
