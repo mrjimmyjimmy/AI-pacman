@@ -362,7 +362,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         # if features['timeLeft']<250 and features['dots'] != 0 and features['oldDots'] != 0:
         #     newWeights['disToBoundary'] = (-3/500)*features['timeLeft']
 
-        if features['timeLeft']<200:
+        if features['timeLeft']<200 and features['dots'] != 0:
             newWeights['disToBoundary'] = -10
 
 
