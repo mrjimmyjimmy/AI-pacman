@@ -644,7 +644,7 @@ def getDeadEnds(gameState, isRed):
                         elif len(nextNeighbor) == 1:
                             deadEnds[(i, j), direction] = depth
 
-    # print "old deadends:", deadEnds
+    print "old deadends:", deadEnds
     hasNew = True
     while hasNew:
         hasNew = False
@@ -656,24 +656,41 @@ def getDeadEnds(gameState, isRed):
             if not deadEnd_coords.has_key((i,j)):
                 deadEnd_coords[(i,j)] = 0
             else:
-                deadEnd_potential.append((i,j))
+                deadEnd_potential.append((i,j))          # potential: all coords that points 2 directions at a deadend
             deadEnd_coords[(i,j)] += deadEnds[(i,j),dir]
 
 
         for (i, j) in deadEnd_potential:
             waystodeadend = []
             for neighbor in neighbors[(i,j)]:
-                if ((i,j), neighbor) not in deadEnds:
+                if ((i,j), neighbor) not in deadEnds:    # i,j pointing at non-deadend directions
                     # print "adds to ways to deadend:",i, j, neighbor
-                    waystodeadend.append(nextStep((i,j),neighbor))
+                    waystodeadend.append(nextStep((i,j),neighbor))    # append the nextstep and reverse dir
 
             if len(waystodeadend) == 1:
                 (x, y), direction = waystodeadend[0]
                 if ((x, y), direction) not in deadEnds:
                     hasNew = True
-                    # print "new found:", x, y, direction, 1+ deadEnd_coords[(i,j)]
-                    deadEnds[(x,y),direction] = 1 + deadEnd_coords[(i,j)]
-                    # print "new deadends", deadEnds
+                    newDepth = 1 + deadEnd_coords[(i,j)]
+                    deadEnds[(x,y),direction] = newDepth
+                    print "new found:", x, y, direction, newDepth
+
+                    hasAnotherNew = True
+                    while hasAnotherNew:
+                        hasAnotherNew = False
+                        waysToAnotherDeadend = []
+                        for neighbor in neighbors[(x,y)]:    # a new deadend, if only one direction goes to it, then found another deadend
+                            if ((x,y),neighbor) not in deadEnds:
+                                waysToAnotherDeadend.append(nextStep((x,y),neighbor))
+                        if len(waysToAnotherDeadend) == 1:
+                            (x, y), direction = waysToAnotherDeadend[0]
+                            if ((x, y), direction) not in deadEnds:
+                                hasAnotherNew = True
+                                newDepth += 1
+                                deadEnds[(x, y), direction] = newDepth
+                                print "ANOTHER new found:", x, y, direction, newDepth
+
+    print "new deadends", deadEnds
 
 
     if isRed:
