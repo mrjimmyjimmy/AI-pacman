@@ -160,6 +160,10 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             #you are eaten
             if fear.scaredTimer<3 and fear.scaredTimer!=0:
                 if runaway>10:
+                    print 'QTeam!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+                    print runaway
+                    print sucGhostDis
+                    print ghostDis
                     features['towardsGhost']=100
                 else:
                    features['towardsGhost']=-runaway

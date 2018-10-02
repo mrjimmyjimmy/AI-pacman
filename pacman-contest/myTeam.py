@@ -45,7 +45,7 @@ class ReflexCaptureAgent(CaptureAgent):
     def legalPosition(self, previousPosition, nextPosition):
         x, y = previousPosition
         m, n = nextPosition
-        if (m == x + 1 or m == x - 1) and (n == y + 1 or n == y - 1):
+        if (m==x and (n == y + 1 or n == y - 1)) or (n == y and (m == x+1 or m == x -1)):
             return True
         else:
             return False
@@ -105,7 +105,7 @@ class ReflexCaptureAgent(CaptureAgent):
         gameState = self.getSuccessor(previous, action)
         previousPosition = previous.getAgentState(self.index).getPosition()
         agentPosition = gameState.getAgentState(self.index).getPosition()
-        if self.legalPosition(previousPosition, agentPosition):
+        if not self.legalPosition(previousPosition, agentPosition):  # back to born place
             features['disToGhost'] = -100
             return features
 
@@ -160,14 +160,18 @@ class ReflexCaptureAgent(CaptureAgent):
         # features['disToGhost'] = 1/features['disToGhost']
 
         # ---------------------feature 4: dis to closest capsule----------------
+        oldCapsule = self.getCapsules(previous)
         capsule = self.getCapsules(gameState)
-        if len(capsule) == 0:
-            features['disToCapsule'] = 0
+        if (int(x),int(y)) in oldCapsule:
+            features['disToCapsule'] = 0   # eat capsule from previous state via action to the gamestate
         else:
-            dis = []
-            for c in capsule:
-                dis.append(self.getMazeDistance(agentPosition, c))
-            features['disToCapsule'] = min(dis)
+            if len(capsule) == 0:
+                features['disToCapsule'] = 0
+            else:
+                dis = []
+                for c in capsule:
+                    dis.append(self.getMazeDistance(agentPosition, c))
+                features['disToCapsule'] = min(dis)
         # ---------------------feature 5: carrying----------------
         features['dots'] = gameState.getAgentState(self.index).numCarrying
         features['oldDots'] = previous.getAgentState(self.index).numCarrying
@@ -187,6 +191,8 @@ class ReflexCaptureAgent(CaptureAgent):
             (previous.getAgentState(self.index).getPosition(), action)] * 2 >= features['disToGhost'] - 1 > 0:
             features['deadends'] = 100
         # features.divideAll(10)
+        #------------------------feature 9 : timeLeft
+        features['timeLeft'] = previous.data.timeleft
 
         return features
 
@@ -255,14 +261,14 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         maxQaction = None
         for action in actions:
             qval = self.evl2(gameState, action)
-            # print "action", action
-            # print qval
+            print "action", action
+            print qval
             if qval >= maxQ:
                 maxQ = qval
                 maxQaction = action
 
         # self.updateWeights(gameState, maxQaction)
-        # print "====================================]=================so i choose:", maxQaction
+        print "====================================]=================so i choose:", maxQaction
         return maxQaction
 
     def getReward(self, gameState, action):
@@ -330,10 +336,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         weights = self.getWeights(gameState, action)
         newWeights = copy.deepcopy(weights)
 
-        # if features['dots'] == 0:
-        #     newWeights['disToBoundary'] *= 0.7
-        # else:
-        #     newWeights['disToBoundary'] *= (1.0 + float(features['dots']) / 83)
+
 
         if features['dots'] < 8 or features['oldDots'] ==7:
             newWeights = {'score': 20.78261354182, 'DisToNearestFood': -7.91094492098, 'disToGhost': 8.17572535548,
@@ -350,9 +353,21 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                         'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
                         'disToBoundary': -6.94156916302, 'deadends': -10}
 
+        if features['disToGhost'] == 1 and features['score'] > 4:
+            newWeights['disToGhost'] = 1 # chang mian shang ying, jiu shao wei pa gui yi dian
 
-        # print features
-        # print newWeights
+        # if features['disToGhost'] <= 3 and features['isPacman']:
+        #     newWeights['disToCapsule'] = -8
+
+        # if features['timeLeft']<250 and features['dots'] != 0 and features['oldDots'] != 0:
+        #     newWeights['disToBoundary'] = (-3/500)*features['timeLeft']
+
+        if features['timeLeft']<200 and features['dots'] != 0:
+            newWeights['disToBoundary'] = -10
+
+
+        print features
+        print newWeights
         return features * newWeights
 
 
@@ -661,7 +676,7 @@ def getDeadEnds(gameState, isRed):
                         elif len(nextNeighbor) == 1:
                             deadEnds[(i, j), direction] = depth
 
-    # print "old deadends:", deadEnds
+    print "old deadends:", deadEnds
     hasNew = True
     while hasNew:
         hasNew = False
@@ -673,24 +688,41 @@ def getDeadEnds(gameState, isRed):
             if not deadEnd_coords.has_key((i,j)):
                 deadEnd_coords[(i,j)] = 0
             else:
-                deadEnd_potential.append((i,j))
+                deadEnd_potential.append((i,j))          # potential: all coords that points 2 directions at a deadend
             deadEnd_coords[(i,j)] += deadEnds[(i,j),dir]
 
 
         for (i, j) in deadEnd_potential:
             waystodeadend = []
             for neighbor in neighbors[(i,j)]:
-                if ((i,j), neighbor) not in deadEnds:
+                if ((i,j), neighbor) not in deadEnds:    # i,j pointing at non-deadend directions
                     # print "adds to ways to deadend:",i, j, neighbor
-                    waystodeadend.append(nextStep((i,j),neighbor))
+                    waystodeadend.append(nextStep((i,j),neighbor))    # append the nextstep and reverse dir
 
             if len(waystodeadend) == 1:
                 (x, y), direction = waystodeadend[0]
                 if ((x, y), direction) not in deadEnds:
                     hasNew = True
-                    # print "new found:", x, y, direction, 1+ deadEnd_coords[(i,j)]
-                    deadEnds[(x,y),direction] = 1 + deadEnd_coords[(i,j)]
-                    # print "new deadends", deadEnds
+                    newDepth = 1 + deadEnd_coords[(i,j)]
+                    deadEnds[(x,y),direction] = newDepth
+                    print "new found:", x, y, direction, newDepth
+
+                    hasAnotherNew = True
+                    while hasAnotherNew:
+                        hasAnotherNew = False
+                        waysToAnotherDeadend = []
+                        for neighbor in neighbors[(x,y)]:    # a new deadend, if only one direction goes to it, then found another deadend
+                            if ((x,y),neighbor) not in deadEnds:
+                                waysToAnotherDeadend.append(nextStep((x,y),neighbor))
+                        if len(waysToAnotherDeadend) == 1:
+                            (x, y), direction = waysToAnotherDeadend[0]
+                            if ((x, y), direction) not in deadEnds:
+                                hasAnotherNew = True
+                                newDepth += 1
+                                deadEnds[(x, y), direction] = newDepth
+                                print "ANOTHER new found:", x, y, direction, newDepth
+
+    print "new deadends", deadEnds
 
 
     if isRed:
