@@ -475,7 +475,6 @@ class MainAgent(CaptureAgent):
         # If powered, reduce power timer each itteration
         if self.powerTimer>0:
             self.powerTimer -= 1
-        print self.powerTimer
 
         # Is powered heuristic
         if(self.isPowered()):
