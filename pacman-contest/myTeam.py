@@ -268,7 +268,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                 maxQaction = action
 
         # self.updateWeights(gameState, maxQaction)
-        print "====================================]=================so i choose:", maxQaction
+        # print "====================================]=================so i choose:", maxQaction
         return maxQaction
 
     def getReward(self, gameState, action):
