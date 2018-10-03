@@ -266,8 +266,8 @@ class ReflexCaptureAgent(CaptureAgent):
 
 
 
-        print features
-        print newWeights
+        # print features
+        # print newWeights
         return features * newWeights
 
 
@@ -470,14 +470,15 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             qval = self.evaluate(gameState, action, agentType)
             # qval = self.evl2(gameState, action)
             # if self.offenceMode == 'crazy':
-            print "action", action
-            print qval
+            # print "action", action
+            # print qval
             if qval >= maxQ:
                 maxQ = qval
                 maxQaction = action
 
         # self.updateWeights(gameState, maxQaction)
-        print "====================================]=================so i choose:", maxQaction
+        # print "====================================]=================so i choose:", maxQaction
+
         return maxQaction
 
     def getReward(self, gameState, action):
