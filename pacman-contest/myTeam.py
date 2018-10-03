@@ -140,6 +140,9 @@ class ReflexCaptureAgent(CaptureAgent):
 
             dis = min(toEnemies)
             features['disToGhost'] = dis
+
+            if 1< dis <= 3:
+                features['disToGhostExtrme'] = dis
             if dis >= 12:
                 features['disToGhost'] = 12
         else:
@@ -212,14 +215,14 @@ class ReflexCaptureAgent(CaptureAgent):
         features = self.getFeaturesOffense(gameState, action)
         weights = self.getWeightOffence(gameState, action)
         newWeights = copy.deepcopy(weights)
-
+        self.offenceMode = 'normal'
 
         # ---------situation 1, pacman is currying less than 8, try to get much
         if features['dots'] < 8 or features['oldDots'] ==7:
-            print 'mode: less than 8'
+            # print 'mode: less than 8'
             newWeights = {'score': 20.78261354182, 'DisToNearestFood': -7.91094492098, 'disToGhost': 8.17572535548,
                           'disToCapsule': -4.36111562824, 'dots': -0.877933155097,
-                          'disToBoundary': -2.94156916302, 'deadends': -10}
+                          'disToBoundary': -2.94156916302, 'deadends': -10, }
 
         # if features['dots']>=9:
         #     newWeights = {'score': 1.78261354182, 'DisToNearestFood': -2.91094492098, 'disToGhost': 8.17572535548,
@@ -246,18 +249,27 @@ class ReflexCaptureAgent(CaptureAgent):
             newWeights['disToBoundary'] = -10
 
         # -------situation 4, when the pacman eat capsule and still time remain, try to eat as much as possible
-        if features['strong'] > 40 and features['dots'] < 9:
-            print 'mode: carzy'
-            # newWeights['disToGhost'] = 0
-            newWeights['deadends'] = 0
-            newWeights['disToBoundary'] = 0
-            newWeights['disToCapsule'] = 0
+        # if features['strong'] > 40 and features['dots'] < 8:
+        #     self.offenceMode = 'crazy'
+        #     # print 'mode: carzy'
+        #     newWeights['disToGhost'] = 0
+        #     newWeights['deadends'] = 0
+        #     newWeights['disToBoundary'] = 0
+        #     newWeights['disToCapsule'] = 0
+
 
         # --------situation 5, pacman catching by enemy, dis < 3 and foodcurry > 5, try to eat capsule first
         if features['oldDots'] > 3 and features['disToGhost'] < 3:
 
-            print 'mode: attack back'
+            # print 'mode: attack back'
             newWeights['disToCapsule'] = weights['disToCapsule']*5
+
+        # # --------situation 6, pacman must step into the enemy place
+        # if features['dots'] < 1:
+        #     print 'mode: extrme'
+        #     newWeights = {'score': 1.78261354182, 'DisToNearestFood': -22.91094492098, 'disToGhostExtrme': 28.17572535548,
+        #                   'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
+        #                   'disToBoundary': -6.94156916302, 'deadends': -10}
 
         # print features
         # print newWeights
@@ -462,6 +474,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         for action in actions:
             qval = self.evaluate(gameState, action, agentType)
             # qval = self.evl2(gameState, action)
+            # if self.offenceMode == 'crazy':
             # print "action", action
             # print qval
             if qval >= maxQ:
@@ -531,21 +544,21 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             Qvalue.append(self.evl2(gameState, a))
         return max(Qvalue)
 
-    def updateWeights(self, gameState, action):
-        alpha = 0.0001
-        discount = 0.7
-        nextState = self.getSuccessor(gameState, action)
-        features = self.getFeaturesOffense(gameState, action)
-
-        reward = self.getReward(gameState, action)
-        maxQ = self.getMaxQ(nextState)
-        q = self.evl2(gameState, Directions.STOP)
-
-        for f in features:
-            # print "feature and weight:", f, features[f]
-
-            self.weights[f] += alpha * (reward + discount * maxQ - q) * features[f]
-            # print f, self.weights[f]
+    # def updateWeights(self, gameState, action):
+    #     alpha = 0.0001
+    #     discount = 0.7
+    #     nextState = self.getSuccessor(gameState, action)
+    #     features = self.getFeaturesOffense(gameState, action)
+    #
+    #     reward = self.getReward(gameState, action)
+    #     maxQ = self.getMaxQ(nextState)
+    #     q = self.evl2(gameState, Directions.STOP)
+    #
+    #     for f in features:
+    #         print "feature and weight:", f, features[f]
+    #
+    #         self.weights[f] += alpha * (reward + discount * maxQ - q) * features[f]
+    #         print f, self.weights[f]
 
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
@@ -739,8 +752,8 @@ class MCTree:
             self.depth = ancestor.depth + 1
 
     def __str__(self):
-        print "Depth:", self.depth, "\nSubtrees:", len(self.subtrees), \
-            "\nVisited:", str(self.visited), "\nScore:", str(self.score)
+        # print "Depth:", self.depth, "\nSubtrees:", len(self.subtrees), \
+        #     "\nVisited:", str(self.visited), "\nScore:", str(self.score)
         return ""
 
     def expand(self):
@@ -749,7 +762,7 @@ class MCTree:
             for action in self.gameState.getLegalActions(self.agentindex):
                 self.subtrees[action] = MCTree(self.gameState.generateSuccessor(self.agentindex, action), self,
                                                self.agent)
-            print "expanded tree:", self
+            # print "expanded tree:", self
             # self.subtreesCounter[action] = 0
             # print "Expanded"
         # else:
