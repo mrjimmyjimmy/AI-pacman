@@ -261,8 +261,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         maxQaction = None
         for action in actions:
             qval = self.evl2(gameState, action)
-            print "action", action
-            print qval
+            # print "action", action
+            # print qval
             if qval >= maxQ:
                 maxQ = qval
                 maxQaction = action
@@ -366,8 +366,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             newWeights['disToBoundary'] = -10
 
 
-        print features
-        print newWeights
+        # print features
+        # print newWeights
         return features * newWeights
 
 
@@ -659,7 +659,7 @@ def getDeadEnds(gameState, isRed):
                         elif len(nextNeighbor) == 1:
                             deadEnds[(i, j), direction] = depth
 
-    print "old deadends:", deadEnds
+    # print "old deadends:", deadEnds
     hasNew = True
     while hasNew:
         hasNew = False
@@ -688,7 +688,7 @@ def getDeadEnds(gameState, isRed):
                     hasNew = True
                     newDepth = 1 + deadEnd_coords[(i,j)]
                     deadEnds[(x,y),direction] = newDepth
-                    print "new found:", x, y, direction, newDepth
+                    # print "new found:", x, y, direction, newDepth
 
                     hasAnotherNew = True
                     while hasAnotherNew:
@@ -703,9 +703,9 @@ def getDeadEnds(gameState, isRed):
                                 hasAnotherNew = True
                                 newDepth += 1
                                 deadEnds[(x, y), direction] = newDepth
-                                print "ANOTHER new found:", x, y, direction, newDepth
+                                # print "ANOTHER new found:", x, y, direction, newDepth
 
-    print "new deadends", deadEnds
+    # print "new deadends", deadEnds
 
 
     if isRed:
