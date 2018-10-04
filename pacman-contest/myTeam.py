@@ -201,7 +201,7 @@ class ReflexCaptureAgent(CaptureAgent):
         features['strong'] = self.powerTimer
 
         # If powered, reduce power timer each itteration
-        if self.powerTimer>0:
+        if self.powerTimer > 0:
             self.powerTimer -= 1
 
 
@@ -249,13 +249,13 @@ class ReflexCaptureAgent(CaptureAgent):
             newWeights['disToBoundary'] = -10
 
         # -------situation 4, when the pacman eat capsule and still time remain, try to eat as much as possible
-        # if features['strong'] > 40 and features['dots'] < 8:
-        #     self.offenceMode = 'crazy'
-        #     # print 'mode: carzy'
-        #     newWeights['disToGhost'] = 0
-        #     newWeights['deadends'] = 0
-        #     newWeights['disToBoundary'] = 0
-        #     newWeights['disToCapsule'] = 0
+        if features['strong'] > 40 and features['dots'] < 8:
+            self.offenceMode = 'crazy'
+            # print 'mode: carzy'
+            newWeights['disToGhost'] = 0
+            newWeights['deadends'] = 0
+            newWeights['disToBoundary'] = 0
+            newWeights['disToCapsule'] = 0
 
 
         # --------situation 5, pacman catching by enemy, dis < 3 and foodcurry > 5, try to eat capsule first
@@ -264,15 +264,9 @@ class ReflexCaptureAgent(CaptureAgent):
             # print 'mode: attack back'
             newWeights['disToCapsule'] = weights['disToCapsule']*5
 
-        # # --------situation 6, pacman must step into the enemy place
-        # if features['dots'] < 1:
-        #     print 'mode: extrme'
-        #     newWeights = {'score': 1.78261354182, 'DisToNearestFood': -22.91094492098, 'disToGhostExtrme': 28.17572535548,
-        #                   'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
-        #                   'disToBoundary': -6.94156916302, 'deadends': -10}
 
-        # print features
-        # print newWeights
+        print features
+        print newWeights
         return features * newWeights
 
 
@@ -411,10 +405,6 @@ class ReflexCaptureAgent(CaptureAgent):
 
 
 
-
-
-
-
 class OffensiveReflexAgent(ReflexCaptureAgent):
 
     def registerInitialState(self, gameState):
@@ -451,8 +441,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         """
         epislon = 0  # the chanse to randomly choose an action - going to 0 at last
 
-        # print "agent:", self
-        # print "agent index", self.index
+        print "agent:", self
+        print "agent index", self.index
         # return MCTsearch(gameState, self, depth=5)
 
         """
@@ -474,15 +464,14 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         for action in actions:
             qval = self.evaluate(gameState, action, agentType)
             # qval = self.evl2(gameState, action)
-            # if self.offenceMode == 'crazy':
-            # print "action", action
-            # print qval
+            print "action", action
+            print qval
             if qval >= maxQ:
                 maxQ = qval
                 maxQaction = action
 
         # self.updateWeights(gameState, maxQaction)
-        # print "====================================]=================so i choose:", maxQaction
+        print "====================================]=================so i choose:", maxQaction
         return maxQaction
 
     def getReward(self, gameState, action):
