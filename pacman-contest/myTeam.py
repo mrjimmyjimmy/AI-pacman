@@ -201,7 +201,7 @@ class ReflexCaptureAgent(CaptureAgent):
         features['strong'] = self.powerTimer
 
         # If powered, reduce power timer each itteration
-        if self.powerTimer > 0:
+        if self.powerTimer>0:
             self.powerTimer -= 1
 
 
@@ -230,7 +230,7 @@ class ReflexCaptureAgent(CaptureAgent):
         #         'disToBoundary': -6.94156916302, 'deadends': -10}
 
         # ---------situaion 2, pacman is currying more than 9, try to go home
-        if features['dots'] >= 9 and features['oldDots'] != 8:
+        if features['dots'] >= 9 and features['oldDots'] != 8 and features['disToGhost'] != 12:
             newWeights = {'score': 1.78261354182, 'DisToNearestFood': -2.91094492098, 'disToGhost': 8.17572535548,
                           'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
                           'disToBoundary': -6.94156916302, 'deadends': -10}
@@ -262,11 +262,12 @@ class ReflexCaptureAgent(CaptureAgent):
         if features['oldDots'] > 3 and features['disToGhost'] < 3:
 
             # print 'mode: attack back'
-            newWeights['disToCapsule'] = weights['disToCapsule']*5
+            newWeights['disToCapsule']*=5
 
 
-        print features
-        print newWeights
+
+        # print features
+        # print newWeights
         return features * newWeights
 
 
@@ -405,6 +406,10 @@ class ReflexCaptureAgent(CaptureAgent):
 
 
 
+
+
+
+
 class OffensiveReflexAgent(ReflexCaptureAgent):
 
     def registerInitialState(self, gameState):
@@ -441,8 +446,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         """
         epislon = 0  # the chanse to randomly choose an action - going to 0 at last
 
-        print "agent:", self
-        print "agent index", self.index
+        # print "agent:", self
+        # print "agent index", self.index
         # return MCTsearch(gameState, self, depth=5)
 
         """
@@ -464,14 +469,16 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         for action in actions:
             qval = self.evaluate(gameState, action, agentType)
             # qval = self.evl2(gameState, action)
-            print "action", action
-            print qval
+            # if self.offenceMode == 'crazy':
+            # print "action", action
+            # print qval
             if qval >= maxQ:
                 maxQ = qval
                 maxQaction = action
 
         # self.updateWeights(gameState, maxQaction)
-        print "====================================]=================so i choose:", maxQaction
+        # print "====================================]=================so i choose:", maxQaction
+
         return maxQaction
 
     def getReward(self, gameState, action):
