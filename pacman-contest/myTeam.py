@@ -42,6 +42,27 @@ class ReflexCaptureAgent(CaptureAgent):
         else:
             return False
 
+    def disToNearestGhost(self, gameState):
+        agentPosition = gameState.getAgentState(self.index).getPosition()
+        enemies = []
+        for e in self.getOpponents(gameState):
+            enemyState = gameState.getAgentState(e)
+            if not enemyState.isPacman and not enemyState.getPosition() is None and not enemyState.scaredTimer > 5:
+                enemies.append(enemyState)
+
+        if len(enemies) > 0:
+            toEnemies = []
+            for e in enemies:
+                enemyPos = e.getPosition()
+                toEnemies.append(self.getMazeDistance(agentPosition, enemyPos))
+            # closest = min(position, key=lambda x: self.agent.getMazeDistance(agentPosition, x))
+
+            dis = min(toEnemies)
+            if dis < 6:
+                return dis
+        else:
+            return 6
+
     def registerInitialState(self, gameState):
         CaptureAgent.registerInitialState(self, gameState)
 
@@ -217,12 +238,18 @@ class ReflexCaptureAgent(CaptureAgent):
         newWeights = copy.deepcopy(weights)
         self.offenceMode = 'normal'
 
-        # ---------situation 1, pacman is currying less than 8, try to get much
-        if features['dots'] < 8 or features['oldDots'] ==7:
+        # ---------situation 1, pacman is currying less than 8, try to get more
+        if features['oldDots'] <=7:
             # print 'mode: less than 8'
             newWeights = {'score': 20.78261354182, 'DisToNearestFood': -7.91094492098, 'disToGhost': 8.17572535548,
                           'disToCapsule': -4.36111562824, 'dots': -0.877933155097,
                           'disToBoundary': -2.94156916302, 'deadends': -10, }
+            # if self.disToNearestGhost(gameState) <6 and len(self.getCapsules(gameState))>0:
+            #     newWeights = {'score': 20.78261354182, 'DisToNearestFood': -3.91094492098, 'disToGhost': 7.17572535548,
+            #                   'disToCapsule': -5.748375738597, 'dots': -0.877933155097,
+            #                   'disToBoundary': -2.94156916302, 'deadends': -10, }
+            if len(self.getCapsules(gameState))==0:
+                newWeights['DisToNearestFood'] = -8.21094492098
 
         # if features['dots']>=9:
         #     newWeights = {'score': 1.78261354182, 'DisToNearestFood': -2.91094492098, 'disToGhost': 8.17572535548,
@@ -230,14 +257,14 @@ class ReflexCaptureAgent(CaptureAgent):
         #         'disToBoundary': -6.94156916302, 'deadends': -10}
 
         # ---------situaion 2, pacman is currying more than 9, try to go home
-        if features['dots'] >= 9 and features['oldDots'] != 8 and features['disToGhost'] != 12:
-            newWeights = {'score': 1.78261354182, 'DisToNearestFood': -2.91094492098, 'disToGhost': 8.17572535548,
+        if features['oldDots'] >= 8 and self.disToNearestGhost(gameState) <6:
+            newWeights = {'score': 20.78261354182, 'DisToNearestFood': -2.91094492098, 'disToGhost':8.17572535548,
                           'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
                           'disToBoundary': -6.94156916302, 'deadends': -10}
 
         # ---------situaion 3, score is more than 4, be careful
-        if features['disToGhost'] == 1 and features['score'] > 4:
-            newWeights['disToGhost'] = 1 # chang mian shang ying, jiu shao wei pa gui yi dian
+        if features['disToGhost'] <= 1 and features['score'] > 4:
+            newWeights['disToGhost'] = 10 #  old value =1
 
         # if features['disToGhost'] <= 3 and features['isPacman']:
         #     newWeights['disToCapsule'] = -8
@@ -245,29 +272,29 @@ class ReflexCaptureAgent(CaptureAgent):
         # if features['timeLeft']<250 and features['dots'] != 0 and features['oldDots'] != 0:
         #     newWeights['disToBoundary'] = (-3/500)*features['timeLeft']
 
-        if features['timeLeft']<200 and features['dots'] != 0:
+        if features['timeLeft']<200 and gameState.getAgentState(self.index).numCarrying != 0:
             newWeights['disToBoundary'] = -10
 
         # -------situation 4, when the pacman eat capsule and still time remain, try to eat as much as possible
-        if features['strong'] > 40 and features['dots'] < 8:
-            self.offenceMode = 'crazy'
-            # print 'mode: carzy'
-            newWeights['disToGhost'] = 0
-            newWeights['deadends'] = 0
-            newWeights['disToBoundary'] = 0
-            newWeights['disToCapsule'] = 0
+        # if features['strong'] > 40 and features['dots'] < 8:
+        #     self.offenceMode = 'crazy'
+        #     print 'mode: carzy!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+        #     newWeights['disToGhost'] = 0
+        #     newWeights['deadends'] = 0
+        #     newWeights['disToBoundary'] = 0
+        #     newWeights['disToCapsule'] = 0
 
 
-        # --------situation 5, pacman catching by enemy, dis < 3 and foodcurry > 5, try to eat capsule first
-        if features['oldDots'] > 3 and features['disToGhost'] < 3:
-
+        # --------situation 5, pacman catching by enemy, dis < 3 and foodcarry > 5, try to eat capsule first
+        if features['oldDots'] > 3 and self.disToNearestGhost(gameState) < 3:
+            print "gameState Distance to ghost ---------------------------",  self.disToNearestGhost(gameState)
             # print 'mode: attack back'
-            newWeights['disToCapsule']*=5
+            newWeights['disToCapsule'] = -7.36111562824
 
 
 
-        # print features
-        # print newWeights
+        print features
+        print newWeights
         return features * newWeights
 
 
@@ -470,14 +497,14 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             qval = self.evaluate(gameState, action, agentType)
             # qval = self.evl2(gameState, action)
             # if self.offenceMode == 'crazy':
-            # print "action", action
-            # print qval
+            print "action", action
+            print qval
             if qval >= maxQ:
                 maxQ = qval
                 maxQaction = action
 
         # self.updateWeights(gameState, maxQaction)
-        # print "====================================]=================so i choose:", maxQaction
+        print "====================================]=================so i choose:", maxQaction
 
         return maxQaction
 
