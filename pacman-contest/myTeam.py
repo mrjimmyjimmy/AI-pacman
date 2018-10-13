@@ -145,6 +145,31 @@ class ReflexCaptureAgent(CaptureAgent):
     def getWeightMove(self):
         return {'dis': -1}
 
+    def isTowardsCapsule(self, previous, action):
+
+        gameState = self.getSuccessor(previous,action)
+        oldCapsule = self.getCapsules(previous)
+        capsule = self.getCapsules(gameState)
+
+        if len(oldCapsule) > len(capsule): return True
+        else:
+            print "~~~~~~~~~~~~~~~~~~~~~TOWRADS CPUSLE?????????????????????????"
+            print self.disToNearestCapsule(previous) - self.disToNearestCapsule(gameState) > 0
+            return self.disToNearestCapsule(previous) - self.disToNearestCapsule(gameState) > 0
+
+
+    def disToNearestCapsule(self, gameState):
+        capsule = self.getCapsules(gameState)
+        x, y = gameState.getAgentState(self.index).getPosition()
+        if len(capsule) == 0:
+            return 0
+        else:
+            dis = []
+            for c in capsule:
+                dis.append(self.getMazeDistance((x, y), c))
+            return min(dis)
+
+
     def getFeaturesOffense(self, previous, action):
         features = util.Counter()
         gameState = self.getSuccessor(previous, action)
@@ -237,8 +262,7 @@ class ReflexCaptureAgent(CaptureAgent):
         features['deadends'] = 0
         if self.deadEnds.has_key((previous.getAgentState(self.index).getPosition(), action)) and (
                 features['disToGhost'] < 12 or self.disToNearestGhost(previous) < 6) and self.deadEnds[
-            (previous.getAgentState(self.index).getPosition(), action)] * 2 >= features['disToGhost'] - 1 > 0:
-            print self.disToNearestGhost(previous),"!!!!!!!!!self.disToNearestGhost(previous) < 6!!!!!!!"
+            (previous.getAgentState(self.index).getPosition(), action)] * 2 >= features['disToGhost'] - 1 > 0 and not (self.isTowardsCapsule(previous,action)):
             features['deadends'] = 100
         # features.divideAll(10)
         # ------------------------feature 9 : timeLeft
