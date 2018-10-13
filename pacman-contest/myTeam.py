@@ -480,7 +480,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         if self.disToNearestGhost(gameState) == 2:
             survive_moves = len(actions)
             for action in actions:
-                if self.getFeaturesOffense(gameState, action)['disToGhost'] == 1:
+                features = self.getFeaturesOffense(gameState, action)
+                if features['disToGhost'] == 1 or features['deadends']==100:
                     survive_moves -= 1
             if survive_moves == 0:
                 return Directions.STOP
