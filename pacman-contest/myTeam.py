@@ -41,16 +41,13 @@ class ReflexCaptureAgent(CaptureAgent):
             return False
 
     def disToNearestGhost(self, gameState):
-        print "enter the disTOafdasfkjadsfilpjadsfpkljdsafklpadjsfklpadsj++++++++++++++++++++"
         agentPosition = gameState.getAgentState(self.index).getPosition()
         enemies = []
         for e in self.getOpponents(gameState):
             enemyState = gameState.getAgentState(e)
             if not enemyState.isPacman and not enemyState.getPosition() is None and not enemyState.scaredTimer > 5:
                 enemies.append(enemyState)
-                print '11111111111, enemies.append enemy state', enemyState.getPosition()
 
-        print "222222222 len(enemies)", len(enemies)
         if len(enemies) > 0:
             toEnemies = []
             for e in enemies:
@@ -58,7 +55,6 @@ class ReflexCaptureAgent(CaptureAgent):
                 toEnemies.append(self.getMazeDistance(agentPosition, enemyPos))
             # closest = min(position, key=lambda x: self.agent.getMazeDistance(agentPosition, x))
 
-            print 'toEnemies```````````````````````',toEnemies
 
             dis = min(toEnemies)
             if dis > 6:
