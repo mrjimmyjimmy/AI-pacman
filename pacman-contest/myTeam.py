@@ -731,8 +731,11 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         actions.remove(Directions.STOP)
         myPos = gameState.getAgentPosition(self.index)
         opponents = self.getOpponents(gameState)
+        enemyDis = []
         self.disScaredGhost = 0
         for i in opponents:
+            if not gameState.getAgentPosition(i) == None:
+                enemyDis.append(self.getMazeDistance(gameState.getAgentPosition(i), myPos))
             if gameState.getAgentState(i).isPacman and gameState.getAgentState(self.index).scaredTimer >0:
                 self.disScaredGhost = self.getMazeDistance(myPos, gameState.getAgentPosition(i))
 
@@ -752,6 +755,11 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         self.waitTime -= 1
         if myPos in self.boundary and self.waitTime > 2:
             agentType = 'defence'
+
+        if not enemyDis == []:
+            for i in enemyDis:
+                if 0<= i <= 3 and myPos in self.boundary:
+                    agentType = 'defence'
 
 
 
