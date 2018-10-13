@@ -166,12 +166,12 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                     print ghostDis
                     features['towardsGhost']=100
                 else:
-                   features['towardsGhost']=-runaway
+                    features['towardsGhost']=-runaway
             else:
                 if runaway>10:
                     features['towardsGhost']=-100
                 else:
-                   features['towardsGhost']=runaway
+                    features['towardsGhost']=runaway
 
             capsuleList = self.getCapsules(gameState)
             if len(capsuleList) > 0:
@@ -180,9 +180,9 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
                 features['towardsCapsule'] = minCapDistance-sucCapDistance
                 if sucPos in capsuleList:
-                        features['towardsCapsule']=100
+                    features['towardsCapsule']=100
             else:
-                    features['towardsCapsule'] = 0
+                features['towardsCapsule'] = 0
 
         # Compute distance to the nearest capsule
 
@@ -210,7 +210,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         """
 
         return {'successorScore': 100, 'towardsFood': 50, 'towardsGhost': 500, 'towardsCapsule': 500,'towardsBound':5,
-                            'deadends': -2000, }
+                'deadends': -2000, }
 
     def allSimulation(self, depth, gameState, decay):
         new_state = gameState.deepCopy()
