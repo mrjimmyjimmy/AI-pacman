@@ -564,30 +564,30 @@ class ReflexCaptureAgent(CaptureAgent):
 
 class OffensiveReflexAgent(ReflexCaptureAgent):
 
-    def registerInitialState(self, gameState):
-        CaptureAgent.registerInitialState(self, gameState)
-
-        self.weights = {'score': 1.78261354182, 'DisToNearestFood': -4.91094492098, 'disToGhost': 8.17572535548,
-                        'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
-                        'disToBoundary': -2.94156916302, 'deadends': -10}
-
-        # self.weights = {'score': 0, 'DisToNearestFood': 0, 'disToGhost':0,
-        #                 'disToCapsule': 0, 'dots': 0,
-        #                 'disToBoundary': 0,'deadends':0}
-        self.distancer.getMazeDistances()
-
-        # ----------- DEADEND PROCESSING
-        self.deadEnds = getDeadEnds(gameState, self.red)
-
-        if self.red:
-            cX = (gameState.data.layout.width - 2) / 2
-        else:
-            cX = ((gameState.data.layout.width - 2) / 2) + 1
-
-        self.boundary = []
-        for i in range(1, gameState.data.layout.height - 1):
-            if not gameState.hasWall(cX, i):
-                self.boundary.append((cX, i))
+    # def registerInitialState(self, gameState):
+    #     CaptureAgent.registerInitialState(self, gameState)
+    #
+    #     self.weights = {'score': 1.78261354182, 'DisToNearestFood': -4.91094492098, 'disToGhost': 8.17572535548,
+    #                     'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
+    #                     'disToBoundary': -2.94156916302, 'deadends': -10}
+    #
+    #     # self.weights = {'score': 0, 'DisToNearestFood': 0, 'disToGhost':0,
+    #     #                 'disToCapsule': 0, 'dots': 0,
+    #     #                 'disToBoundary': 0,'deadends':0}
+    #     self.distancer.getMazeDistances()
+    #
+    #     # ----------- DEADEND PROCESSING
+    #     self.deadEnds = getDeadEnds(gameState, self.red)
+    #
+    #     if self.red:
+    #         cX = (gameState.data.layout.width - 2) / 2
+    #     else:
+    #         cX = ((gameState.data.layout.width - 2) / 2) + 1
+    #
+    #     self.boundary = []
+    #     for i in range(1, gameState.data.layout.height - 1):
+    #         if not gameState.hasWall(cX, i):
+    #             self.boundary.append((cX, i))
 
         # self.weights = {'score': 0, 'DisToNearestFood': -5, 'disToGhost': 50, 'disToCapsule': -55, 'dots': 50,
         #            'disToBoundary': -50}
