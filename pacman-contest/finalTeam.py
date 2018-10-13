@@ -40,6 +40,28 @@ class ReflexCaptureAgent(CaptureAgent):
         else:
             return False
 
+    def disToNearestGhost(self, gameState):
+        agentPosition = gameState.getAgentState(self.index).getPosition()
+        enemies = []
+        for e in self.getOpponents(gameState):
+            enemyState = gameState.getAgentState(e)
+            if not enemyState.isPacman and not enemyState.getPosition() is None and not enemyState.scaredTimer > 5:
+                enemies.append(enemyState)
+
+        if len(enemies) > 0:
+            toEnemies = []
+            for e in enemies:
+                enemyPos = e.getPosition()
+                toEnemies.append(self.getMazeDistance(agentPosition, enemyPos))
+            # closest = min(position, key=lambda x: self.agent.getMazeDistance(agentPosition, x))
+
+            dis = min(toEnemies)
+            if dis > 6:
+                dis = 6
+            return dis
+        else:
+            return 6
+
     def registerInitialState(self, gameState):
         CaptureAgent.registerInitialState(self, gameState)
 
@@ -279,7 +301,7 @@ class ReflexCaptureAgent(CaptureAgent):
                 features['disToGhost'] = -100
                 return features
             if features['disToGhost'] == 1:
-            # print self.getSuccessor(gameState, action).getAgentState(self.index).isPacman, '*******'
+                # print self.getSuccessor(gameState, action).getAgentState(self.index).isPacman, '*******'
                 if (self.getSuccessor(gameState, action).getAgentState(self.index).isPacman):
                     newWeights['disToGhost'] = -100
 
@@ -380,25 +402,28 @@ class ReflexCaptureAgent(CaptureAgent):
             dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
             features['invaderDistance'] = min(dists)
 
-        if myState.scaredTimer > 0 and 0 <= features['invaderDistance'] < 4 > 0:
+        features['nextdead'] = 0
+        if self.ScaredTimer(successor) and  0 <= features['invaderDistance'] < 4 > 0:
             features['dangerDistance'] = features['invaderDistance']
             features['invaderDistance'] = 0
             features['nextdead'] = len(nextActions)
 
-        if myState.isPacman or myState.scaredTimer > 0:
+        features['deadends'] = 0
+        if myState.isPacman:
             features['deadends'] = 0
             if self.deadEnds.has_key((gameState.getAgentState(self.index).getPosition(), action)) and (features[
-                                                                                                          'disToGhost'] < 12 or self.disToNearestGhost(gameState) < 6)and self.deadEnds[
+                                                                                                           'disToGhost'] < 12 or self.disToNearestGhost(gameState) < 6)and self.deadEnds[
                 (gameState.getAgentState(self.index).getPosition(), action)] * 2 >= features['disToGhost'] - 1 > 0:
                 features['deadends'] = 100
 
-        # there is no enemy in our filed, hang out at boundary
+
+
+
         disToBoundary = 99999
-        for e in enemies:
-            if not e.isPacman:
-                for a in range(len(self.boundary)):
-                    disToBoundary = min(disToBoundary, self.getMazeDistance(myPos, self.boundary[a]))
-                features['disToBoundary'] = disToBoundary
+        if len(invaders) == 0:
+            for a in range(len(self.boundary)):
+                disToBoundary = min(disToBoundary, self.getMazeDistance(myPos, self.boundary[a]))
+            features['disToBoundary'] = disToBoundary
 
 
         # get the distance where the food lost
@@ -414,45 +439,18 @@ class ReflexCaptureAgent(CaptureAgent):
             minDistance = self.getMazeDistance(myPos, self.foodLost[0])
             features['lostFoodDistance'] = minDistance
 
-        # if there is no enemy, we wont go lost food position
-        enemiesState = []
-        for e in enemies:
-            if e.isPacman:
-                enemiesState.append(e)
-        if len(enemiesState) == 0:
-            features['lostFoodDistance'] = 0
+        # if features['numInvaders'] == 0:
+        #     features['lostFoodDistance'] = 0
 
         return features
 
     def getWeightsDefence(self, gameState, action):
         return {'numInvaders': -10, 'onDefense': 1, 'invaderDistance': -10000, 'deadends': -10,
-            'lostFoodDistance': -1000, 'disToBoundary': -20, 'dangerDistance': 10000, 'nextdead': 1}
-
-
-
-
+                'lostFoodDistance': -1000, 'disToBoundary': -20, 'dangerDistance': 10000, 'nextdead': 1}
 
     ####################
     #  help functions  #
     ####################
-    def disToNearestGhost(self, gameState):
-        agentPosition = gameState.getAgentState(self.index).getPosition()
-        enemies = []
-        for e in self.getOpponents(gameState):
-            enemyState = gameState.getAgentState(e)
-            if not enemyState.isPacman and not enemyState.getPosition() is None and not enemyState.scaredTimer > 5:
-                enemies.append(enemyState)
-        if len(enemies) > 0:
-            toEnemies = []
-            for e in enemies:
-                enemyPos = e.getPosition()
-                toEnemies.append(self.getMazeDistance(agentPosition, enemyPos))
-            dis = min(toEnemies)
-            if dis > 6:
-                dis = 6
-            return dis
-        else:
-            return 6
 
     def atCenter(self, myPos):
         if myPos in self.boundary:
@@ -460,12 +458,41 @@ class ReflexCaptureAgent(CaptureAgent):
         else:
             return False
 
+    # return a list of (x,y), shows the enemies positions
+    def getEnemy(self, gameState):
+        enemyPos = []
+        enemies = self.getOpponents(gameState)
+        for enemy in enemies:
+            pos = gameState.getAgentPosition(enemy)
+            if pos != None:
+                enemyPos.append((enemy, pos))
+
+        return enemyPos
+
+    # Find which enemy is the closest
+    def getEnemyDis(self, gameState, myPos):
+        pos = self.getEnemy(gameState)
+        minDist = None
+        if len(pos) > 0:
+            minDist = 6
+            # myPos = gameState.getAgentPosition(self.index)
+            for i, p in pos:
+                dist = self.getMazeDistance(p, myPos)
+                if dist < minDist:
+                    minDist = dist
+        return minDist
+
+    # How much longer is the ghost scared?
+    def ScaredTimer(self, gameState):
+        return gameState.getAgentState(self.index).scaredTimer
+
     # return a list of (x,y) shows the food lost in our side
     def foodLostPosition(self):
         currentState = self.getCurrentObservation()
         previousState = self.getPreviousObservation()
         currentFood = self.getFoodYouAreDefending(currentState)
         self.currFoodNum = len(currentFood.asList())
+
         previousFood = None
         if previousState != None:
             previousFood = self.getFoodYouAreDefending(previousState)
@@ -476,6 +503,7 @@ class ReflexCaptureAgent(CaptureAgent):
 
     # gice the difference element of two matrax
     def differInMatrax(self, current, previous):
+
         list_curr = []
         list_pre = []
         foodPos = []
@@ -492,14 +520,29 @@ class ReflexCaptureAgent(CaptureAgent):
 
         return foodPos
 
-    # where enemy will arrive
+    # def enemyArrayPoint(self):
+    #     currentState = self.getCurrentObservation()
+    #     food = self.getFoodYouAreDefending(currentState).asList()
+    #
+    #     dis = None
+    #     if len(food) > 2:
+    #         minDis = 100
+    #         for f in food:
+    #             for a in self.boundaryBlue:
+    #                 currDis = self.getMazeDistance(a,f)
+    #                 if currDis <= minDis:
+    #                     minDis = currDis
+    #                     dis = a
+    #
+    #     return dis
+
     def enemyArrayPoint(self):
         currentState = self.getCurrentObservation()
         food = self.getFoodYouAreDefending(currentState).asList()
 
         dis = None
         if len(food) > 2:
-            minDis = 1000
+            minDis = 100
             minGate = []
             indexGate = []
             test = []
@@ -516,14 +559,16 @@ class ReflexCaptureAgent(CaptureAgent):
                 for i in minGate:
                     if i == self.getMazeDistance(a, self.startBlue):
                         indexGate.append(a)
+
+
             for f in food:
                 for a in indexGate:
                     currDis = self.getMazeDistance(a,f)
                     if currDis <= minDis:
                         minDis = currDis
                         dis = a
-        return dis
 
+        return dis
 
 
 
@@ -554,8 +599,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     #         if not gameState.hasWall(cX, i):
     #             self.boundary.append((cX, i))
 
-        # self.weights = {'score': 0, 'DisToNearestFood': -5, 'disToGhost': 50, 'disToCapsule': -55, 'dots': 50,
-        #            'disToBoundary': -50}
+    # self.weights = {'score': 0, 'DisToNearestFood': -5, 'disToGhost': 50, 'disToCapsule': -55, 'dots': 50,
+    #            'disToBoundary': -50}
 
     def chooseAction(self, gameState):
         """
@@ -679,13 +724,15 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         Picks among the actions with the highest Q(s,a).
         """
         epislon = 0  # the chanse to randomly choose an action - going to 0 at last
-        self.disScaredGhost = 0
+
 
         actions = gameState.getLegalActions(self.index)
+        # sorry here bro
         actions.remove(Directions.STOP)
         myPos = gameState.getAgentPosition(self.index)
         opponents = self.getOpponents(gameState)
         enemyDis = []
+        self.disScaredGhost = 0
         for i in opponents:
             if not gameState.getAgentPosition(i) == None:
                 enemyDis.append(self.getMazeDistance(gameState.getAgentPosition(i), myPos))
@@ -696,10 +743,11 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         """
         switch agent type here
         """
-        agentType = 'offence'
-
+        # agent type always be offence
+        # agentType = 'offence'
         if myPos in self.boundary:
             self.arrive = True
+        agentType = 'offence'
         if self.arrive == False and self.waitTime > 2:
             agentType = 'move'
 
@@ -710,14 +758,16 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
         if not enemyDis == []:
             for i in enemyDis:
-                if 0<= i <= 3 :
+                if 0<= i <= 3 and myPos in self.boundary:
                     agentType = 'defence'
+
+
 
         for enemy in opponents:
             if gameState.getAgentState(enemy).isPacman:
                 agentType = 'defence'
 
-        # when go back home, aviod be eaten by ghost
+        print self.disScaredGhost, '%%%%%%%%%%%%'
         if self.disScaredGhost == 2 :
             survive_moves = len(actions)
             for action in actions:
@@ -735,12 +785,14 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         maxQaction = None
         for action in actions:
             qval = self.evaluate(gameState, action, agentType)
-            # print "action", action
-            # print qval
+            print "action", action
+            print qval
             if qval >= maxQ:
                 maxQ = qval
                 maxQaction = action
-        # print "**********8so i choose:", maxQaction, '*******************'
+
+        print "**********8so i choose:", maxQaction, '*******************'
+
         return maxQaction
 
 
