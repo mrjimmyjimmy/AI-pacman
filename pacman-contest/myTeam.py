@@ -118,14 +118,7 @@ class ReflexCaptureAgent(CaptureAgent):
         Computes a linear combination of features and feature weights
         """
         if agentType == 'defence':
-            features = self.getFeaturesDefence(gameState, action)
-            weights = self.getWeightsDefence(gameState, action)
-
-            if features['disToGhost'] == 1:
-                # print self.getSuccessor(gameState, action).getAgentState(self.index).isPacman, '*******'
-                if (self.getSuccessor(gameState, action).getAgentState(self.index).isPacman):
-                    weights['disToGhost'] = -100
-            return features * weights
+            return self.evl3(gameState,action)
 
         if agentType == 'offence':
             return self.evl2(gameState, action)
@@ -296,6 +289,23 @@ class ReflexCaptureAgent(CaptureAgent):
         weights = self.getWeightsDefence(gameState, action)
         newWeights = copy.deepcopy(weights)
         self.offenceMode = 'normal'
+        successor = self.getSuccessor(gameState, action)
+
+        # get the position
+        myState = successor.getAgentState(self.index)
+        myPos = myState.getPosition()
+        previousPosition = gameState.getAgentState(self.index).getPosition()
+
+        if gameState.getAgentState(self.index).isPacman:
+            if not self.legalPosition(previousPosition, myPos):  # back to born place
+                features['disToGhost'] = -100
+                return features
+            if features['disToGhost'] == 1:
+            # print self.getSuccessor(gameState, action).getAgentState(self.index).isPacman, '*******'
+                if (self.getSuccessor(gameState, action).getAgentState(self.index).isPacman):
+                    newWeights['disToGhost'] = -100
+
+        return features * newWeights
 
 
 
@@ -721,6 +731,11 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         actions.remove(Directions.STOP)
         myPos = gameState.getAgentPosition(self.index)
         opponents = self.getOpponents(gameState)
+        self.disScaredGhost = 0
+        for i in opponents:
+            if gameState.getAgentState(i).isPacman and gameState.getAgentState(self.index).scaredTimer >0:
+                self.disScaredGhost = self.getMazeDistance(myPos, gameState.getAgentPosition(i))
+
 
         """
         switch agent type here
@@ -730,26 +745,29 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         if myPos in self.boundary:
             self.arrive = True
         agentType = 'offence'
-        print 'offence'
         if self.arrive == False and self.waitTime > 2:
             agentType = 'move'
-            print 'move'
 
         # the begining 40 steps won't attack
         self.waitTime -= 1
         if myPos in self.boundary and self.waitTime > 2:
             agentType = 'defence'
-            print 'defence1'
 
 
 
         for enemy in opponents:
             if gameState.getAgentState(enemy).isPacman:
                 agentType = 'defence'
-                print 'defence2'
 
-        actions = gameState.getLegalActions(self.index)
-        actions.remove(Directions.STOP)
+        print self.disScaredGhost, '%%%%%%%%%%%%'
+        if self.disScaredGhost == 2 :
+            survive_moves = len(actions)
+            for action in actions:
+                features = self.getFeaturesDefence(gameState, action)
+                if features['dangerDistance'] == 1:
+                    survive_moves -= 1
+            if survive_moves == 0:
+                return Directions.STOP
 
         if util.flipCoin(epislon):
             action = random.choice(actions)
