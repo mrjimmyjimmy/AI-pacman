@@ -536,6 +536,18 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             # self.updateWeights(gameState, action)
             return action
 
+
+        if self.disToNearestGhost(gameState) == 2:
+            survive_moves = len(actions)
+            for action in actions:
+                if self.getFeaturesOffense(gameState, action)['disToGhost'] == 1:
+                    survive_moves -= 1
+            if survive_moves == 0:
+                return Directions.STOP
+
+
+
+
         maxQ = -float("inf")
         maxQaction = None
         for action in actions:
