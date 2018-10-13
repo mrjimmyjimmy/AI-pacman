@@ -120,15 +120,18 @@ class ReflexCaptureAgent(CaptureAgent):
         if agentType == 'defence':
             features = self.getFeaturesDefence(gameState, action)
             weights = self.getWeightsDefence(gameState, action)
-            print features,'############'
-            print weights, '#############'
+
+            if features['disToGhost'] == 1:
+                # print self.getSuccessor(gameState, action).getAgentState(self.index).isPacman, '*******'
+                if (self.getSuccessor(gameState, action).getAgentState(self.index).isPacman):
+                    weights['disToGhost'] = -100
             return features * weights
 
         if agentType == 'offence':
             return self.evl2(gameState, action)
 
         if agentType == 'move':
-            features = self.getFeatureMove(gameState, action)
+            features = self.getFeatureMove(gameState,action)
             weights = self.getWeightMove()
             return features * weights
 
@@ -142,7 +145,7 @@ class ReflexCaptureAgent(CaptureAgent):
         myPos = myState.getPosition()
 
         point = self.enemyArrayPoint()
-        features['dis'] = self.getMazeDistance(point, myPos)
+        features['dis'] = self.getMazeDistance(point,myPos)
 
         return features
 
@@ -287,6 +290,15 @@ class ReflexCaptureAgent(CaptureAgent):
     def getWeightOffence(self, gameState, action):
         return self.weights
 
+
+    def evl3(self, gameState, action):
+        features = self.getFeaturesDefence(gameState, action)
+        weights = self.getWeightsDefence(gameState, action)
+        newWeights = copy.deepcopy(weights)
+        self.offenceMode = 'normal'
+
+
+
     def evl2(self, gameState, action):
         features = self.getFeaturesOffense(gameState, action)
         weights = self.getWeightOffence(gameState, action)
@@ -346,7 +358,7 @@ class ReflexCaptureAgent(CaptureAgent):
 
         # --------situation 5, pacman catching by enemy, dis < 3 and foodcarry > 5, try to eat capsule first
         if features['oldDots'] > 3 and self.disToNearestGhost(gameState) < 3:
-            print "gameState Distance to ghost ---------------------------", self.disToNearestGhost(gameState)
+            # print "gameState Distance to ghost ---------------------------", self.disToNearestGhost(gameState)
             # print 'mode: attack back'
             newWeights['disToCapsule'] = -7.36111562824
 
@@ -498,6 +510,22 @@ class ReflexCaptureAgent(CaptureAgent):
 
         return foodPos
 
+    # def enemyArrayPoint(self):
+    #     currentState = self.getCurrentObservation()
+    #     food = self.getFoodYouAreDefending(currentState).asList()
+    #
+    #     dis = None
+    #     if len(food) > 2:
+    #         minDis = 100
+    #         for f in food:
+    #             for a in self.boundaryBlue:
+    #                 currDis = self.getMazeDistance(a,f)
+    #                 if currDis <= minDis:
+    #                     minDis = currDis
+    #                     dis = a
+    #
+    #     return dis
+
     def enemyArrayPoint(self):
         currentState = self.getCurrentObservation()
         food = self.getFoodYouAreDefending(currentState).asList()
@@ -531,6 +559,7 @@ class ReflexCaptureAgent(CaptureAgent):
                         dis = a
 
         return dis
+
 
 
 class OffensiveReflexAgent(ReflexCaptureAgent):
@@ -598,14 +627,9 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             if survive_moves == 0:
                 return Directions.STOP
 
-
-
-
         maxQ = -float("inf")
         maxQaction = None
         for action in actions:
-
-
 
             qval = self.evaluate(gameState, action, agentType)
             # qval = self.evl2(gameState, action)
@@ -706,6 +730,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         if myPos in self.boundary:
             self.arrive = True
         agentType = 'offence'
+        print 'offence'
         if self.arrive == False and self.waitTime > 2:
             agentType = 'move'
             print 'move'
@@ -714,12 +739,14 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         self.waitTime -= 1
         if myPos in self.boundary and self.waitTime > 2:
             agentType = 'defence'
+            print 'defence1'
 
 
 
         for enemy in opponents:
             if gameState.getAgentState(enemy).isPacman:
                 agentType = 'defence'
+                print 'defence2'
 
         actions = gameState.getLegalActions(self.index)
         actions.remove(Directions.STOP)
