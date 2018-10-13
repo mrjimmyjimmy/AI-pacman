@@ -262,8 +262,8 @@ class ReflexCaptureAgent(CaptureAgent):
                           'disToBoundary': -6.94156916302, 'deadends': -10}
 
         # ---------situaion 3, score is more than 4, be careful
-        if features['disToGhost'] <= 1 and features['score'] > 4:
-            newWeights['disToGhost'] = 10  # old value =1
+        # if features['disToGhost'] <= 1 and features['score'] > 4:
+        #     newWeights['disToGhost'] = 10  # old value =1
 
         # if features['disToGhost'] <= 3 and features['isPacman']:
         #     newWeights['disToCapsule'] = -8
@@ -479,6 +479,9 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         maxQ = -float("inf")
         maxQaction = None
         for action in actions:
+
+
+
             qval = self.evaluate(gameState, action, agentType)
             # qval = self.evl2(gameState, action)
             # if self.offenceMode == 'crazy':
