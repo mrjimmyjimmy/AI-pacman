@@ -16,7 +16,6 @@ import baselineTeam
 
 def createTeam(firstIndex, secondIndex, isRed,
                first='OffensiveReflexAgent', second='DefensiveReflexAgent'):
-
     return [eval(first)(firstIndex), eval(second)(secondIndex)]
 
 
@@ -29,7 +28,6 @@ class ReflexCaptureAgent(CaptureAgent):
     A base class for reflex agents that chooses score-maximizing actions
     """
 
-
     def __init__(self, gameState):
         CaptureAgent.__init__(self, gameState)
         self.powerTimer = 0
@@ -37,7 +35,7 @@ class ReflexCaptureAgent(CaptureAgent):
     def legalPosition(self, previousPosition, nextPosition):
         x, y = previousPosition
         m, n = nextPosition
-        if (m==x and (n == y + 1 or n == y - 1)) or (n == y and (m == x+1 or m == x -1)):
+        if (m == x and (n == y + 1 or n == y - 1)) or (n == y and (m == x + 1 or m == x - 1)):
             return True
         else:
             return False
@@ -58,8 +56,9 @@ class ReflexCaptureAgent(CaptureAgent):
             # closest = min(position, key=lambda x: self.agent.getMazeDistance(agentPosition, x))
 
             dis = min(toEnemies)
-            if dis < 6:
-                return dis
+            if dis > 6:
+                dis = 6
+            return dis
         else:
             return 6
 
@@ -116,7 +115,6 @@ class ReflexCaptureAgent(CaptureAgent):
         if agentType == 'offence':
             return self.evl2(gameState, action)
 
-
     def getFeaturesOffense(self, previous, action):
         features = util.Counter()
         gameState = self.getSuccessor(previous, action)
@@ -162,8 +160,8 @@ class ReflexCaptureAgent(CaptureAgent):
             dis = min(toEnemies)
             features['disToGhost'] = dis
 
-            if 1< dis <= 3:
-                features['disToGhostExtrme'] = dis
+            # if 1< dis <= 3:
+            #     features['disToGhostExtrme'] = dis
             if dis >= 12:
                 features['disToGhost'] = 12
         else:
@@ -182,8 +180,8 @@ class ReflexCaptureAgent(CaptureAgent):
         # ---------------------feature 4: dis to closest capsule----------------
         oldCapsule = self.getCapsules(previous)
         capsule = self.getCapsules(gameState)
-        if (int(x),int(y)) in oldCapsule:
-            features['disToCapsule'] = 0   # eat capsule from previous state via action to the gamestate
+        if (int(x), int(y)) in oldCapsule:
+            features['disToCapsule'] = 0  # eat capsule from previous state via action to the gamestate
         else:
             if len(capsule) == 0:
                 features['disToCapsule'] = 0
@@ -207,13 +205,13 @@ class ReflexCaptureAgent(CaptureAgent):
 
         # ----------------------feature 8: deadends-----------
         features['deadends'] = 0
-        if self.deadEnds.has_key((previous.getAgentState(self.index).getPosition(), action)) and self.deadEnds[
+        if self.deadEnds.has_key((previous.getAgentState(self.index).getPosition(), action)) and (features[
+            'disToGhost'] < 12 or self.disToNearestGhost(previous) < 6)and self.deadEnds[
             (previous.getAgentState(self.index).getPosition(), action)] * 2 >= features['disToGhost'] - 1 > 0:
             features['deadends'] = 100
         # features.divideAll(10)
-        #------------------------feature 9 : timeLeft
+        # ------------------------feature 9 : timeLeft
         features['timeLeft'] = previous.data.timeleft
-
 
         # ---------------------feature 10: strong-----------
         # used when pacman eat an capsules
@@ -222,15 +220,13 @@ class ReflexCaptureAgent(CaptureAgent):
         features['strong'] = self.powerTimer
 
         # If powered, reduce power timer each itteration
-        if self.powerTimer>0:
+        if self.powerTimer > 0:
             self.powerTimer -= 1
-
 
         return features
 
     def getWeightOffence(self, gameState, action):
         return self.weights
-
 
     def evl2(self, gameState, action):
         features = self.getFeaturesOffense(gameState, action)
@@ -239,7 +235,7 @@ class ReflexCaptureAgent(CaptureAgent):
         self.offenceMode = 'normal'
 
         # ---------situation 1, pacman is currying less than 8, try to get more
-        if features['oldDots'] <=7:
+        if features['oldDots'] <= 7:
             # print 'mode: less than 8'
             newWeights = {'score': 20.78261354182, 'DisToNearestFood': -7.91094492098, 'disToGhost': 8.17572535548,
                           'disToCapsule': -4.36111562824, 'dots': -0.877933155097,
@@ -248,8 +244,11 @@ class ReflexCaptureAgent(CaptureAgent):
             #     newWeights = {'score': 20.78261354182, 'DisToNearestFood': -3.91094492098, 'disToGhost': 7.17572535548,
             #                   'disToCapsule': -5.748375738597, 'dots': -0.877933155097,
             #                   'disToBoundary': -2.94156916302, 'deadends': -10, }
-            if len(self.getCapsules(gameState))==0:
-                newWeights['DisToNearestFood'] = -8.21094492098
+            if len(self.getCapsules(gameState)) == 0:
+                newWeights['DisToNearestFood'] = -13.21094492098
+
+            if features['disToGhost'] == 1 and self.getSuccessor(gameState, action).getAgentState(self.index).isPacman:
+                newWeights['disToGhost'] = -100
 
         # if features['dots']>=9:
         #     newWeights = {'score': 1.78261354182, 'DisToNearestFood': -2.91094492098, 'disToGhost': 8.17572535548,
@@ -257,14 +256,14 @@ class ReflexCaptureAgent(CaptureAgent):
         #         'disToBoundary': -6.94156916302, 'deadends': -10}
 
         # ---------situaion 2, pacman is currying more than 9, try to go home
-        if features['oldDots'] >= 8 and self.disToNearestGhost(gameState) <6:
-            newWeights = {'score': 20.78261354182, 'DisToNearestFood': -2.91094492098, 'disToGhost':8.17572535548,
+        if features['oldDots'] >= 8 and self.disToNearestGhost(gameState) < 6:
+            newWeights = {'score': 20.78261354182, 'DisToNearestFood': -2.91094492098, 'disToGhost': 8.17572535548,
                           'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
                           'disToBoundary': -6.94156916302, 'deadends': -10}
 
         # ---------situaion 3, score is more than 4, be careful
         if features['disToGhost'] <= 1 and features['score'] > 4:
-            newWeights['disToGhost'] = 10 #  old value =1
+            newWeights['disToGhost'] = 10  # old value =1
 
         # if features['disToGhost'] <= 3 and features['isPacman']:
         #     newWeights['disToCapsule'] = -8
@@ -272,7 +271,7 @@ class ReflexCaptureAgent(CaptureAgent):
         # if features['timeLeft']<250 and features['dots'] != 0 and features['oldDots'] != 0:
         #     newWeights['disToBoundary'] = (-3/500)*features['timeLeft']
 
-        if features['timeLeft']<200 and gameState.getAgentState(self.index).numCarrying != 0:
+        if features['timeLeft'] < 200 and gameState.getAgentState(self.index).numCarrying != 0:
             newWeights['disToBoundary'] = -10
 
         # -------situation 4, when the pacman eat capsule and still time remain, try to eat as much as possible
@@ -284,19 +283,15 @@ class ReflexCaptureAgent(CaptureAgent):
         #     newWeights['disToBoundary'] = 0
         #     newWeights['disToCapsule'] = 0
 
-
         # --------situation 5, pacman catching by enemy, dis < 3 and foodcarry > 5, try to eat capsule first
         if features['oldDots'] > 3 and self.disToNearestGhost(gameState) < 3:
-            print "gameState Distance to ghost ---------------------------",  self.disToNearestGhost(gameState)
+            print "gameState Distance to ghost ---------------------------", self.disToNearestGhost(gameState)
             # print 'mode: attack back'
             newWeights['disToCapsule'] = -7.36111562824
-
-
 
         print features
         print newWeights
         return features * newWeights
-
 
     # used for get defence feature
     def getFeaturesDefence(self, gameState, action):
@@ -348,19 +343,15 @@ class ReflexCaptureAgent(CaptureAgent):
             minDistance = self.getMazeDistance(myPos, self.foodLost[0])
             features['lostFoodDistance'] = minDistance
 
-
         return features
 
     def getWeightsDefence(self, gameState, action):
         return {'numInvaders': -10, 'onDefense': 1, 'invaderDistance': -10000, 'stop': -1, 'reverse': -1, 'danger': 1
-            , 'lostFoodDistance': -1000,}
-
-
+            , 'lostFoodDistance': -1000, }
 
     ####################
     #  help functions  #
     ####################
-
 
     def atCenter(self, myPos):
         if myPos in self.boundary:
@@ -429,12 +420,6 @@ class ReflexCaptureAgent(CaptureAgent):
                         foodPos.append((i, j))
 
         return foodPos
-
-
-
-
-
-
 
 
 class OffensiveReflexAgent(ReflexCaptureAgent):
@@ -585,7 +570,6 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
 
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
-
     # food lost to store lost food position
     # until wait time become 0, the agent won't offence
     foodLost = []
@@ -618,15 +602,12 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
             if gameState.getAgentState(enemy).isPacman:
                 agentType = 'defence'
 
-
         values = [self.evaluate(gameState, a, agentType) for a in actions]
         maxValue = max(values)
         bestActions = [a for a, v in zip(actions, values) if v == maxValue]
 
         # print agentType
         return random.choice(bestActions)
-
-
 
 
 # Takes a coord and a direction(NEWS), returns the next position and the reverse direction
@@ -642,7 +623,6 @@ def nextStep((x, y), direction):
 
 
 def getDeadEnds(gameState, isRed):
-
     # need to consider food and depth
 
     deadEnds = {}
@@ -700,35 +680,35 @@ def getDeadEnds(gameState, isRed):
         deadEnd_potential = []
 
         for (i, j), dir in deadEnds:
-            if not deadEnd_coords.has_key((i,j)):
-                deadEnd_coords[(i,j)] = 0
+            if not deadEnd_coords.has_key((i, j)):
+                deadEnd_coords[(i, j)] = 0
             else:
-                deadEnd_potential.append((i,j))          # potential: all coords that points 2 directions at a deadend
-            deadEnd_coords[(i,j)] += deadEnds[(i,j),dir]
-
+                deadEnd_potential.append((i, j))  # potential: all coords that points 2 directions at a deadend
+            deadEnd_coords[(i, j)] += deadEnds[(i, j), dir]
 
         for (i, j) in deadEnd_potential:
             waystodeadend = []
-            for neighbor in neighbors[(i,j)]:
-                if ((i,j), neighbor) not in deadEnds:    # i,j pointing at non-deadend directions
+            for neighbor in neighbors[(i, j)]:
+                if ((i, j), neighbor) not in deadEnds:  # i,j pointing at non-deadend directions
                     # print "adds to ways to deadend:",i, j, neighbor
-                    waystodeadend.append(nextStep((i,j),neighbor))    # append the nextstep and reverse dir
+                    waystodeadend.append(nextStep((i, j), neighbor))  # append the nextstep and reverse dir
 
             if len(waystodeadend) == 1:
                 (x, y), direction = waystodeadend[0]
                 if ((x, y), direction) not in deadEnds:
                     hasNew = True
-                    newDepth = 1 + deadEnd_coords[(i,j)]
-                    deadEnds[(x,y),direction] = newDepth
+                    newDepth = 1 + deadEnd_coords[(i, j)]
+                    deadEnds[(x, y), direction] = newDepth
                     # print "new found:", x, y, direction, newDepth
 
                     hasAnotherNew = True
                     while hasAnotherNew:
                         hasAnotherNew = False
                         waysToAnotherDeadend = []
-                        for neighbor in neighbors[(x,y)]:    # a new deadend, if only one direction goes to it, then found another deadend
-                            if ((x,y),neighbor) not in deadEnds:
-                                waysToAnotherDeadend.append(nextStep((x,y),neighbor))
+                        for neighbor in neighbors[
+                            (x, y)]:  # a new deadend, if only one direction goes to it, then found another deadend
+                            if ((x, y), neighbor) not in deadEnds:
+                                waysToAnotherDeadend.append(nextStep((x, y), neighbor))
                         if len(waysToAnotherDeadend) == 1:
                             (x, y), direction = waysToAnotherDeadend[0]
                             if ((x, y), direction) not in deadEnds:
@@ -738,7 +718,6 @@ def getDeadEnds(gameState, isRed):
                                 # print "ANOTHER new found:", x, y, direction, newDepth
 
     # print "new deadends", deadEnds
-
 
     if isRed:
         cX = (gameState.data.layout.width - 2) / 2
@@ -750,9 +729,6 @@ def getDeadEnds(gameState, isRed):
             (((x, y), dir), deadEnds[((x, y), dir)]) for ((x, y), dir) in deadEnds if x < cX)  # deadend filter
 
     return deadEnds
-
-
-
 
 
 ##########
