@@ -10,6 +10,8 @@ import random, time
 import baselineTeam
 
 
+# python capture.py -r myTeam -b myTeam1 -l RANDOM2305
+
 #################
 # Team creation #
 #################
@@ -47,7 +49,7 @@ class ReflexCaptureAgent(CaptureAgent):
 
         self.weights = {'score': 1.78261354182, 'DisToNearestFood': -4.91094492098, 'disToGhost': 8.17572535548,
                         'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
-                        'disToBoundary': -2.94156916302, 'deadends': -10}
+                        'disToBoundary': -2.94156916302, 'deadends': -10, 'ghostToGhost' : 6}
 
         # self.weights = {'score': 0, 'DisToNearestFood': 0, 'disToGhost':0,
         #                 'disToCapsule': 0, 'dots': 0,
@@ -100,13 +102,18 @@ class ReflexCaptureAgent(CaptureAgent):
         features = util.Counter()
         gameState = self.getSuccessor(previous, action)
         previousPosition = previous.getAgentState(self.index).getPosition()
-        agentPosition = gameState.getAgentState(self.index).getPosition()
-        if not self.legalPosition(previousPosition, agentPosition):  # back to born place
-            features['disToGhost'] = -100
+        agent = gameState.getAgentState(self.index)
+        enemyAgent = gameState.getAgentState(self.index + 1)
+        agentPosition = agent.getPosition()
+        deathDis = self.getMazeDistance(previousPosition, agentPosition)
+        # if not self.legalPosition(previousPosition, agentPosition):  # back to born place
+        if deathDis > 20:  # back to born place
+            features['disToGhost'] = -10000
             return features
 
         # ---------------------feature 1: score----------------
         features['score'] = self.getScore(gameState)
+
         # ---------------------feature 2: distance to closest food----------------
         x, y = gameState.getAgentState(self.index).getPosition()
         oldFood = self.getFood(previous)
@@ -130,6 +137,7 @@ class ReflexCaptureAgent(CaptureAgent):
             if not enemyState.isPacman and not enemyState.getPosition() is None and not enemyState.scaredTimer > 5:
                 enemies.append(enemyState)
 
+        features['disToGhostExtrme'] = 5
         if len(enemies) > 0:
             # print "FFFFFFFFFFFFFFFFFFFF Length of enemies > 0"
             toEnemies = []
@@ -139,12 +147,14 @@ class ReflexCaptureAgent(CaptureAgent):
             # closest = min(position, key=lambda x: self.agent.getMazeDistance(agentPosition, x))
 
             dis = min(toEnemies)
+
             features['disToGhost'] = dis
 
-            if 1< dis <= 3:
+            if 0<= dis <= 4:
                 features['disToGhostExtrme'] = dis
             if dis >= 12:
                 features['disToGhost'] = 12
+
         else:
             features['disToGhost'] = 12
             # dis = []
@@ -171,6 +181,7 @@ class ReflexCaptureAgent(CaptureAgent):
                 for c in capsule:
                     dis.append(self.getMazeDistance(agentPosition, c))
                 features['disToCapsule'] = min(dis)
+
         # ---------------------feature 5: carrying----------------
         features['dots'] = gameState.getAgentState(self.index).numCarrying
         features['oldDots'] = previous.getAgentState(self.index).numCarrying
@@ -196,13 +207,18 @@ class ReflexCaptureAgent(CaptureAgent):
 
         # ---------------------feature 10: strong-----------
         # used when pacman eat an capsules
-        if agentPosition in self.getCapsules(previous):
-            self.powerTimer = 100
-        features['strong'] = self.powerTimer
+        # if agentPosition in self.getCapsules(previous):
+        #     self.powerTimer = 100
+        # features['strong'] = self.powerTimer
+        #
+        # # If powered, reduce power timer each itteration
+        # if self.powerTimer>0:
+        #     self.powerTimer -= 1
+        features['strong'] = 0
+        if enemyAgent.scaredTimer > 6:
+            features['strong'] = 1
 
-        # If powered, reduce power timer each itteration
-        if self.powerTimer>0:
-            self.powerTimer -= 1
+
 
 
         return features
@@ -217,12 +233,14 @@ class ReflexCaptureAgent(CaptureAgent):
         newWeights = copy.deepcopy(weights)
         self.offenceMode = 'normal'
 
+
+
         # ---------situation 1, pacman is currying less than 8, try to get much
         if features['dots'] < 8 or features['oldDots'] ==7:
-            # print 'mode: less than 8'
-            newWeights = {'score': 20.78261354182, 'DisToNearestFood': -7.91094492098, 'disToGhost': 8.17572535548,
+            print 'mode: less than 8 --------'
+            newWeights = {'score': 20.78261354182, 'DisToNearestFood': -7.91094492098, 'disToGhost': 6.17572535548,
                           'disToCapsule': -4.36111562824, 'dots': -0.877933155097,
-                          'disToBoundary': -2.94156916302, 'deadends': -10, }
+                          'disToBoundary': -2.94156916302, 'deadends': -10, 'disToGhostExtrme': 18}
 
         # if features['dots']>=9:
         #     newWeights = {'score': 1.78261354182, 'DisToNearestFood': -2.91094492098, 'disToGhost': 8.17572535548,
@@ -231,12 +249,14 @@ class ReflexCaptureAgent(CaptureAgent):
 
         # ---------situaion 2, pacman is currying more than 9, try to go home
         if features['dots'] >= 9 and features['oldDots'] != 8 and features['disToGhost'] != 12:
-            newWeights = {'score': 1.78261354182, 'DisToNearestFood': -2.91094492098, 'disToGhost': 8.17572535548,
+            print 'mode: more than 8 ----------'
+            newWeights = {'score': 1.78261354182, 'DisToNearestFood': -2.91094492098, 'disToGhost': 6.17572535548,
                           'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
-                          'disToBoundary': -6.94156916302, 'deadends': -10}
+                          'disToBoundary': -6.94156916302, 'deadends': -10, 'disToGhostExtrme': 18}
 
         # ---------situaion 3, score is more than 4, be careful
         if features['disToGhost'] == 1 and features['score'] > 4:
+            print 'mode: care ---------'
             newWeights['disToGhost'] = 1 # chang mian shang ying, jiu shao wei pa gui yi dian
 
         # if features['disToGhost'] <= 3 and features['isPacman']:
@@ -249,20 +269,27 @@ class ReflexCaptureAgent(CaptureAgent):
             newWeights['disToBoundary'] = -10
 
         # -------situation 4, when the pacman eat capsule and still time remain, try to eat as much as possible
-        if features['strong'] > 40 and features['dots'] < 8:
-            self.offenceMode = 'crazy'
-            # print 'mode: carzy'
-            newWeights['disToGhost'] = 0
-            newWeights['deadends'] = 0
-            newWeights['disToBoundary'] = 0
-            newWeights['disToCapsule'] = 0
+        if features['strong'] == 1 :
+            self.offenceMode = 'crazy ---------'
+            print 'mode: carzy'
+            newWeights = {'score': 20.78261354182, 'DisToNearestFood': -7.91094492098, 'disToGhost': 0,
+                          'disToCapsule': 0, 'dots': 5,
+                          'disToBoundary': 0, 'deadends': 0, 'disToGhostExtrme': 0}
 
 
         # --------situation 5, pacman catching by enemy, dis < 3 and foodcurry > 5, try to eat capsule first
-        if features['oldDots'] > 3 and features['disToGhost'] < 3:
+        if 4< features['oldDots'] < 9 and features['disToGhost'] <= 3:
 
-            # print 'mode: attack back'
-            newWeights['disToCapsule']*=5
+            if features['disToBoundary'] < 4:
+                newWeights = {'score': 1.78261354182, 'DisToNearestFood': -2.91094492098, 'disToGhost': 6.17572535548,
+                              'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
+                              'disToBoundary': -6.94156916302, 'deadends': -10, 'ghostToGhost': 18}
+
+            else:
+                # print 'mode: attack back -----------'
+                newWeights['disToCapsule']*=10
+                newWeights['disToBoundary'] = 0
+
 
 
 
@@ -335,6 +362,7 @@ class ReflexCaptureAgent(CaptureAgent):
     ####################
 
 
+
     def atCenter(self, myPos):
         if myPos in self.boundary:
             return True
@@ -404,8 +432,55 @@ class ReflexCaptureAgent(CaptureAgent):
         return foodPos
 
 
-
-
+    # ###########
+    # # min-max #
+    # ###########
+    #
+    # def evaluate_minimax(self, gameState, agentType):
+    #     actions = gameState.getLegalActions(self.index)
+    #     values = [self.evaluate(gameState, a, agentType) for a in actions]
+    #     maxValue = max(values)
+    #     return maxValue
+    #
+    # def minMaxValue(self, gameState, agentIndex, alpha, beta, depth, agentType):
+    #     if depth == 0 or gameState.isOver():
+    #         return self.evaluate_minimax(gameState, agentType)
+    #
+    #     if agentIndex == self.index:
+    #         return self.maxValue(gameState, agentIndex, alpha, beta, depth, agentType)
+    #
+    #     elif gameState.isOnRedTeam(agentIndex) != gameState.isOnRedTeam(self.index) \
+    #             and gameState.getAgentPosition(agentIndex) != None \
+    #             and not gameState.getAgentState(agentIndex).isPacman:
+    #         return self.minValue(gameState, agentIndex, alpha, beta, depth, agentType)
+    #     else:
+    #         return self.minMaxValue(gameState, (agentIndex + 1) % 4, alpha, beta, depth, agentType)
+    #
+    # def maxValue(self, gameState, agentIndex, alpha, beta, depth, agentType):
+    #     v = -float('inf')
+    #     for a in gameState.getLegalActions(agentIndex):
+    #         s = gameState.generateSuccessor(agentIndex, a)
+    #         v = max(v, self.minMaxValue(s, ((agentIndex + 1) % 4), alpha, beta, depth - 1, agentType))
+    #         if v >= beta:
+    #             return v
+    #         alpha = max(alpha, v)
+    #     return v
+    #
+    # def minValue(self, gameState, agentIndex, alpha, beta, depth, agentType):
+    #     v = float('inf')
+    #     past_dist = self.getMazeDistance(gameState.getAgentPosition(self.index), gameState.getAgentPosition(agentIndex))
+    #     for a in gameState.getLegalActions(agentIndex):
+    #         s = gameState.generateSuccessor(agentIndex, a)
+    #         if self.getMazeDistance(s.getAgentPosition(self.index), gameState.getAgentPosition(self.index)) >= 2 and s.getAgentPosition(self.index) == s.getInitialAgentPosition(self.index):
+    #             return -float('inf')
+    #         if self.getMazeDistance(s.getAgentPosition(self.index),
+    #                                 s.getAgentPosition(agentIndex)) < past_dist or self.getMazeDistance(s.getAgentPosition(self.index),
+    #                                                                                                     s.getAgentPosition(agentIndex)) <= 2:
+    #             v = min(v, self.minMaxValue(s, ((agentIndex + 1) % 4), alpha, beta, depth - 1, agentType))
+    #             if v <= alpha:
+    #                 return v
+    #             beta = min(beta, v)
+    #     return v
 
 
 
@@ -457,7 +532,9 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         agentType = 'offence'
 
         actions = gameState.getLegalActions(self.index)
+        # print 'all the actions ####', actions
         actions.remove(Directions.STOP)
+
 
         if util.flipCoin(epislon):
             action = random.choice(actions)
@@ -469,7 +546,6 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         for action in actions:
             qval = self.evaluate(gameState, action, agentType)
             # qval = self.evl2(gameState, action)
-            # if self.offenceMode == 'crazy':
             # print "action", action
             # print qval
             if qval >= maxQ:
@@ -477,9 +553,35 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                 maxQaction = action
 
         # self.updateWeights(gameState, maxQaction)
+
+
+
         # print "====================================]=================so i choose:", maxQaction
 
         return maxQaction
+
+
+        ###################
+        # min-max actions #
+        ###################
+        # alpha = -float('inf')
+        # bestScore = -float('inf')
+        # action = None
+        # for a in actions:
+        #     score = self.minMaxValue(gameState.generateSuccessor(self.index, a), self.index,
+        #                              alpha, -alpha, 4, agentType)
+        #     if score >= bestScore:
+        #         bestScore = score
+        #         action = a
+        #     if score > alpha:
+        #         alpha = score
+        # return action
+
+
+
+
+
+
 
     def getReward(self, gameState, action):
         reward = 0
@@ -591,13 +693,49 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
             if gameState.getAgentState(enemy).isPacman:
                 agentType = 'defence'
 
+        epislon = 0  # the chanse to randomly choose an action - going to 0 at last
 
-        values = [self.evaluate(gameState, a, agentType) for a in actions]
-        maxValue = max(values)
-        bestActions = [a for a, v in zip(actions, values) if v == maxValue]
+        # print "agent:", self
+        # print "agent index", self.index
+        # return MCTsearch(gameState, self, depth=5)
+
+        """
+        switch agent type here
+        """
+        # agent type always be offence
+
+
+        # print '@@@@@all the actions @@@@', actions
+        # actions.remove(Directions.STOP)
+
+        if util.flipCoin(epislon):
+            action = random.choice(actions)
+            # self.updateWeights(gameState, action)
+            return action
+
+        maxQ = -float("inf")
+        maxQaction = None
+        for action in actions:
+            qval = self.evaluate(gameState, action, agentType)
+            # qval = self.evl2(gameState, action)
+            # print "action", action
+            # print qval
+            if qval >= maxQ:
+                maxQ = qval
+                maxQaction = action
+
+        # self.updateWeights(gameState, maxQaction)
+
+        # print "@@@@@@@@@@@so i choose:@@@@@@@@@", maxQaction
+
+
+        # values = [self.evaluate(gameState, a, agentType) for a in actions]
+        # maxValue = max(values)
+        # bestActions = [a for a, v in zip(actions, values) if v == maxValue]
 
         # print agentType
-        return random.choice(bestActions)
+        # return random.choice(bestActions)
+        return maxQaction
 
 
 
