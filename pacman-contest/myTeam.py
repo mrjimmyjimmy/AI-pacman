@@ -88,9 +88,12 @@ class ReflexCaptureAgent(CaptureAgent):
             cX = ((gameState.data.layout.width - 2) / 2) + 1
 
         self.boundary = []
+        self.boundaryBlue = []
         for i in range(1, gameState.data.layout.height - 1):
             if not gameState.hasWall(cX, i):
                 self.boundary.append((cX, i))
+            if not gameState.hasWall(cX +1, i):
+                self.boundaryBlue.append((cX +1, i))
 
     def getSuccessor(self, gameState, action):
         """
@@ -356,20 +359,6 @@ class ReflexCaptureAgent(CaptureAgent):
                 disToBoundary = min(disToBoundary, self.getMazeDistance(myPos, self.boundary[a]))
             features['disToBoundary'] = disToBoundary
 
-        # get the distance to enemy
-        # enemyDistance = self.getEnemyDis(successor, myPos)
-        # if (enemyDistance <= 5):
-        #     features['danger'] = 1
-        #     if (enemyDistance <= 3 and self.ScaredTimer(successor) > 0):
-        #         features['danger'] = -1
-        # else:
-        #     features['danger'] = 0
-
-
-
-        # if action == Directions.STOP: features['stop'] = 1
-        # rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
-        # if action == rev: features['reverse'] = 1
 
         # get the distance where the food lost
         if not self.foodLost == []:
@@ -468,11 +457,12 @@ class ReflexCaptureAgent(CaptureAgent):
     def enemyArrayPoint(self):
         currentState = self.getCurrentObservation()
         food = self.getFoodYouAreDefending(currentState).asList()
+
         dis = None
         if len(food) > 2:
             minDis = 100
             for f in food:
-                for a in self.boundary:
+                for a in self.boundaryBlue:
                     currDis = self.getMazeDistance(a,f)
                     if currDis <= minDis:
                         minDis = currDis
@@ -649,6 +639,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     # until wait time become 0, the agent won't offence
     foodLost = []
     waitTime = 60
+    arrive = False
 
     def chooseAction(self, gameState):
         """
@@ -667,11 +658,13 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         switch agent type here
         """
         # agent type always be offence
-        point = self.enemyArrayPoint()
-
+        # agentType = 'offence'
+        if myPos in self.boundary:
+            self.arrive = True
         agentType = 'offence'
-        if self.waitTime > 2:
+        if self.arrive == False and self.waitTime > 2:
             agentType = 'move'
+            print 'move'
 
         # the begining 40 steps won't attack
         self.waitTime -= 1
@@ -689,57 +682,22 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
 
         if util.flipCoin(epislon):
             action = random.choice(actions)
-            # self.updateWeights(gameState, action)
             return action
 
         maxQ = -float("inf")
         maxQaction = None
         for action in actions:
             qval = self.evaluate(gameState, action, agentType)
-            # qval = self.evl2(gameState, action)
-            # if self.offenceMode == 'crazy':
             print "action", action
             print qval
             if qval >= maxQ:
                 maxQ = qval
                 maxQaction = action
 
-        # self.updateWeights(gameState, maxQaction)
         print "**********8so i choose:", maxQaction, '*******************'
 
         return maxQaction
-        # """
-        # Picks among the actions with the highest Q(s,a).
-        # """
-        # # get all legal actions
-        # actions = gameState.getLegalActions(self.index)
-        # # sorry here bro
-        # actions.remove(Directions.STOP)
-        # myPos = gameState.getAgentPosition(self.index)
-        # opponents = self.getOpponents(gameState)
-        #
-        # """
-        # switch agent type here
-        # """
-        # # there is no enemy, try to catch some food
-        # agentType = 'offence'
-        #
-        # # the begining 40 steps won't attack
-        # self.waitTime -= 1
-        # if myPos in self.boundary and self.waitTime > 2:
-        #     agentType = 'defence'
-        #
-        # # there is some enemy, back to defend
-        # for enemy in opponents:
-        #     if gameState.getAgentState(enemy).isPacman:
-        #         agentType = 'defence'
-        #
-        # values = [self.evaluate(gameState, a, agentType) for a in actions]
-        # maxValue = max(values)
-        # bestActions = [a for a, v in zip(actions, values) if v == maxValue]
-        #
-        # # print agentType
-        # return random.choice(bestActions)
+
 
 
 # Takes a coord and a direction(NEWS), returns the next position and the reverse direction
