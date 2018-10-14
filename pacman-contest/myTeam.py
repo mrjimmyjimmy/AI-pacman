@@ -537,34 +537,6 @@ class ReflexCaptureAgent(CaptureAgent):
 
 class OffensiveReflexAgent(ReflexCaptureAgent):
 
-    # def registerInitialState(self, gameState):
-    #     CaptureAgent.registerInitialState(self, gameState)
-    #
-    #     self.weights = {'score': 1.78261354182, 'DisToNearestFood': -4.91094492098, 'disToGhost': 8.17572535548,
-    #                     'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
-    #                     'disToBoundary': -2.94156916302, 'deadends': -10}
-    #
-    #     # self.weights = {'score': 0, 'DisToNearestFood': 0, 'disToGhost':0,
-    #     #                 'disToCapsule': 0, 'dots': 0,
-    #     #                 'disToBoundary': 0,'deadends':0}
-    #     self.distancer.getMazeDistances()
-    #
-    #     # ----------- DEADEND PROCESSING
-    #     self.deadEnds = getDeadEnds(gameState, self.red)
-    #
-    #     if self.red:
-    #         cX = (gameState.data.layout.width - 2) / 2
-    #     else:
-    #         cX = ((gameState.data.layout.width - 2) / 2) + 1
-    #
-    #     self.boundary = []
-    #     for i in range(1, gameState.data.layout.height - 1):
-    #         if not gameState.hasWall(cX, i):
-    #             self.boundary.append((cX, i))
-
-    # self.weights = {'score': 0, 'DisToNearestFood': -5, 'disToGhost': 50, 'disToCapsule': -55, 'dots': 50,
-    #            'disToBoundary': -50}
-
     def chooseAction(self, gameState):
         """
         Picks among the actions with the highest Q(s,a).
@@ -721,7 +693,12 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
             if gameState.getAgentState(enemy).isPacman:
                 agentType = 'defence'
 
-        # ## Min-Max needed
+        '''
+        ##################
+        # Min-Max needed #
+        ##################
+        We decided not to use in our final submission, since it is not works well
+        '''
         # if self.disToNearestGhost(gameState) <=5 and agentType == "offence":
         #     bestScore, alpha = -float('inf'), -float('inf')
         #     action = None
@@ -904,111 +881,79 @@ class MCTree:
                 self.subtrees[action] = MCTree(self.gameState.generateSuccessor(self.agentindex, action), self,
                                                self.agent)
 
-#     def tree_policy(self):
-#         actions = self.gameState.getLegalActions(self.agentindex)
-#         if len(actions) == 1:
-#             return actions[0]
-#
-#         maxQ = -10000
-#         maxQaction = Directions.STOP
-#         CP = 1 / 2
-#         for action in actions:
-#             # if self.subtreesCounter[action] == 0:
-#             #     self.subtreesCounter[action] += 1
-#             if self.subtrees[action].visited == 0:
-#                 print "Tree policy returning new:", action
-#                 return action
-#             uct = self.agent.evl(self.gameState.generateSuccessor(self.agentindex, action)) + 2 * CP * sqrt(
-#                 2 * log(self.visited) / self.subtrees[action].visited)
-#             if uct >= maxQ:
-#                 maxQ = uct
-#                 maxQaction = action
-#         # self.subtreesCounter[action] += 1
-#         print "Tree policy returning: ", maxQaction
-#         return maxQaction
-#
-#     def backprop(self, simulate_score):
-#         self.visited += 1
-#         self.score += simulate_score
-#         if self.ancestor is not None:
-#             print "from depth", self.depth
-#             print "backprop to ancestor: ", simulate_score
-#             self.ancestor.backprop(simulate_score)
-#         else:
-#             print "Backproped to root"
-#             print "the depth is:", self.depth
-#             print "root socre:", self.score
-#
-#
-# def random_simulation(gameState, agent, depth):
-#     print "agent in simulation", agent
-#     agentindex = agent.index
-#     if depth > 0:
-#         actions = gameState.getLegalActions(agentindex)
-#         reverse_direction = Directions.REVERSE[gameState.getAgentState(agentindex).getDirection()]
-#         if len(actions) > 1:
-#             # print "Actions before remove: ", actions
-#             # for action in actions:
-#             #     print type(action)
-#             # print "Reverse direction: ", reverse_direction, type(reverse_direction)
-#             actions.remove(reverse_direction)
-#             # print "Actions: ", actions
-#             action = random.choice(actions)
-#             # print "Action taken:", action
-#         else:
-#             action = actions[0]
-#         random_simulation(gameState.generateSuccessor(agentindex, action), agent, depth - 1)
-#     return agent.evl(gameState)
-#
-#
-# def MCTsearch(gameState, agent, depth):
-#     start_time = time.time()
-#     print "Starting Search time: ", start_time
-#     root = MCTree(gameState, None, agent)
-#     root.expand()
-#
-#     while time.time() - start_time < 0.08:  # budget time
-#         print "New simulation! Time Elapsed: ", time.time() - start_time
-#         action = root.tree_policy()
-#         tree = root.subtrees[action]
-#         print "number of taking the action on root:", tree.visited
-#         while not tree.visited == 0:
-#             print "subtree depth:", tree.depth
-#             # print tree
-#             # print "Calling for expansion"
-#             tree.expand()  # effective if len(subtrees) == 0
-#             # print "expanded tree: ", tree
-#             action = tree.tree_policy()
-#             tree = tree.subtrees[action]
-#         simulated_score = random_simulation(tree.gameState, agent, depth)
-#         print "simulated score:", simulated_score
-#         tree.backprop(simulated_score)
-#         print "After backprop, root:", root
-#
-#     maxQ = -10000
-#     maxQaction = None
-#     for action in root.gameState.getLegalActions(root.agentindex):
-#         subtree = root.subtrees[action]
-#         if subtree.visited == 0:
-#             print "Error, an action is never simulated:", action
-#             continue
-#         qvalue = subtree.score / subtree.visited
-#         if qvalue >= maxQ:
-#             maxQ = qvalue
-#             maxQaction = action
-#     print "********RETURN ACTION*********", maxQaction
-#     print root
-#     # exit(100)
-#     return maxQaction
+    def tree_policy(self):
+        actions = self.gameState.getLegalActions(self.agentindex)
+        if len(actions) == 1:
+            return actions[0]
 
-#
-# def evl(gameState):
-#     value = random.uniform(0,1)
-#     # print "random value:", value
-#     return value
+        maxQ = -10000
+        maxQaction = Directions.STOP
+        CP = 1 / 2
+        for action in actions:
+            # if self.subtreesCounter[action] == 0:
+            #     self.subtreesCounter[action] += 1
+            if self.subtrees[action].visited == 0:
+                return action
+            uct = self.agent.evl(self.gameState.generateSuccessor(self.agentindex, action)) + 2 * CP * sqrt(
+                2 * log(self.visited) / self.subtrees[action].visited)
+            if uct >= maxQ:
+                maxQ = uct
+                maxQaction = action
+        return maxQaction
+
+    def backprop(self, simulate_score):
+        self.visited += 1
+        self.score += simulate_score
+        if self.ancestor is not None:
+            self.ancestor.backprop(simulate_score)
 
 
-#
-# class myoffensiveagent(baselineTeam.ReflexCaptureAgent):
-#     def chooseAction(self, gameState):
-#         return MCTsearch(gameState, self.index, 5)
+def random_simulation(gameState, agent, depth):
+    agentindex = agent.index
+    if depth > 0:
+        actions = gameState.getLegalActions(agentindex)
+        reverse_direction = Directions.REVERSE[gameState.getAgentState(agentindex).getDirection()]
+        if len(actions) > 1:
+            # print "Actions before remove: ", actions
+            # for action in actions:
+            #     print type(action)
+            # print "Reverse direction: ", reverse_direction, type(reverse_direction)
+            actions.remove(reverse_direction)
+            # print "Actions: ", actions
+            action = random.choice(actions)
+            # print "Action taken:", action
+        else:
+            action = actions[0]
+        random_simulation(gameState.generateSuccessor(agentindex, action), agent, depth - 1)
+    return agent.evl(gameState)
+
+
+def MCTsearch(gameState, agent, depth):
+    start_time = time.time()
+    root = MCTree(gameState, None, agent)
+    root.expand()
+
+    while time.time() - start_time < 0.08:  # budget time
+        action = root.tree_policy()
+        tree = root.subtrees[action]
+        while not tree.visited == 0:
+            tree.expand()  # effective if len(subtrees) == 0
+            action = tree.tree_policy()
+            tree = tree.subtrees[action]
+        simulated_score = random_simulation(tree.gameState, agent, depth)
+        tree.backprop(simulated_score)
+
+    maxQ = -10000
+    maxQaction = None
+    for action in root.gameState.getLegalActions(root.agentindex):
+        subtree = root.subtrees[action]
+        if subtree.visited == 0:
+            continue
+        qvalue = subtree.score / subtree.visited
+        if qvalue >= maxQ:
+            maxQ = qvalue
+            maxQaction = action
+    # exit(100)
+    return maxQaction
+
+
