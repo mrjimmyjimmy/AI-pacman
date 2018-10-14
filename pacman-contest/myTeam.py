@@ -295,6 +295,9 @@ class ReflexCaptureAgent(CaptureAgent):
             newWeights = {'score': 20.78261354182, 'DisToNearestFood': -2.91094492098, 'disToGhost': 8.17572535548,
                           'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
                           'disToBoundary': -6.94156916302, 'deadends': -10}
+            if features['disToGhost'] == 1:
+                if (self.getSuccessor(gameState, action).getAgentState(self.index).isPacman):
+                    newWeights['disToGhost'] = -100
 
         if features['timeLeft'] < 200 and gameState.getAgentState(self.index).numCarrying != 0:
             newWeights['disToBoundary'] = -15
@@ -303,6 +306,8 @@ class ReflexCaptureAgent(CaptureAgent):
         if features['oldDots'] > 3 and self.disToNearestGhost(gameState) < 3:
             newWeights['disToCapsule'] = -7.36111562824
 
+        # print features
+        # print newWeights
         return features * newWeights
 
     # used for get defence feature
@@ -592,19 +597,6 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             if survive_moves == 0:
                 return Directions.STOP
 
-        # ## Min-Max needed
-        # if self.disToNearestGhost(gameState) <=5 and agentType == "offence":
-        #     bestScore, alpha = -float('inf'), -float('inf')
-        #     action = None
-        #     for a in actions:
-        #         score = self.minMaxValue(gameState.generateSuccessor(self.index, a), self.index,
-        #                                  alpha, bestScore, 4, agentType)
-        #         if score >= bestScore:
-        #             bestScore = score
-        #             action = a
-        #         if score > alpha:
-        #             alpha = score
-        #     return action
 
         maxQ = -float("inf")
         maxQaction = None
@@ -613,12 +605,13 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             qval = self.evaluate(gameState, action, agentType)
             # qval = self.evl2(gameState, action)
             # if self.offenceMode == 'crazy':
+            # print(action, qval)
             if qval >= maxQ:
                 maxQ = qval
                 maxQaction = action
 
         # self.updateWeights(gameState, maxQaction)
-
+        # print '=============', (maxQaction, maxQ), '============='
         return maxQaction
 
     def getReward(self, gameState, action):
@@ -727,6 +720,20 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         for enemy in opponents:
             if gameState.getAgentState(enemy).isPacman:
                 agentType = 'defence'
+
+        # ## Min-Max needed
+        # if self.disToNearestGhost(gameState) <=5 and agentType == "offence":
+        #     bestScore, alpha = -float('inf'), -float('inf')
+        #     action = None
+        #     for a in actions:
+        #         score = self.minMaxValue(gameState.generateSuccessor(self.index, a), self.index,
+        #                                  alpha, bestScore, 4, agentType)
+        #         if score >= bestScore:
+        #             bestScore = score
+        #             action = a
+        #         if score > alpha:
+        #             alpha = score
+        #     return action
 
         # when go back home, aviod be eaten by ghost
         if self.disScaredGhost == 2 :
