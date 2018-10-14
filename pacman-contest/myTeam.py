@@ -55,18 +55,11 @@ class ReflexCaptureAgent(CaptureAgent):
         # ----------- DEADEND PROCESSING
         self.deadEnds = getDeadEnds(gameState, self.red)
 
-        # for deadend in self.deadEnds:
-        #     print "Correct deadends: ", deadend, self.deadEnds[deadend]
-        #
-        #
-        # print "Map width:", gameState.data.layout.width
         if self.red:
             cX = (gameState.data.layout.width - 2) / 2
-            self.startBlue = (gameState.data.layout.width -2,gameState.data.layout.height -2)
             self.delta = 1
         else:
             cX = ((gameState.data.layout.width - 2) / 2) + 1
-            self.startBlue = (1,2)
             self.delta = -1
 
         self.boundary = []
@@ -115,7 +108,7 @@ class ReflexCaptureAgent(CaptureAgent):
         myState = successor.getAgentState(self.index)
         myPos = myState.getPosition()
 
-        point = self.enemyArrayPoint()
+        point = self.enemyArrayPoint(gameState)
         features['dis'] = self.getMazeDistance(point,myPos)
 
         return features
@@ -491,10 +484,13 @@ class ReflexCaptureAgent(CaptureAgent):
         return foodPos
 
     # where enemy will arrive
-    def enemyArrayPoint(self):
+    def enemyArrayPoint(self, gameState):
         currentState = self.getCurrentObservation()
         food = self.getFoodYouAreDefending(currentState).asList()
-
+        if self.index - 1 >= 0:
+            self.startBlue = gameState.getInitialAgentPosition(self.index - 1)
+        else:
+            self.startBlue = gameState.getInitialAgentPosition(self.index + 1)
         dis = None
         if len(food) > 2:
             minDis = 1000
@@ -521,6 +517,57 @@ class ReflexCaptureAgent(CaptureAgent):
                         minDis = currDis
                         dis = a
         return dis
+
+    ###########
+    # min-max #
+    ###########
+
+    def evaluate_minimax(self, gameState, agentType):
+        actions = gameState.getLegalActions(self.index)
+        values = [self.evaluate(gameState, a, agentType) for a in actions]
+        maxValue = max(values)
+        return maxValue
+
+    def minMaxValue(self, gameState, agentIndex, alpha, beta, depth, agentType):
+        if depth == 0 or gameState.isOver():
+            return self.evaluate_minimax(gameState, agentType)
+
+        if agentIndex == self.index:
+            return self.maxValue(gameState, agentIndex, alpha, beta, depth, agentType)
+
+        elif gameState.isOnRedTeam(agentIndex) != gameState.isOnRedTeam(self.index) \
+                and gameState.getAgentPosition(agentIndex) != None \
+                and not gameState.getAgentState(agentIndex).isPacman:
+            return self.minValue(gameState, agentIndex, alpha, beta, depth, agentType)
+        else:
+            return self.minMaxValue(gameState, (agentIndex + 1) % 4, alpha, beta, depth, agentType)
+
+    def maxValue(self, gameState, agentIndex, alpha, beta, depth, agentType):
+        v = -float('inf')
+        for a in gameState.getLegalActions(agentIndex):
+            s = gameState.generateSuccessor(agentIndex, a)
+            v = max(v, self.minMaxValue(s, ((agentIndex + 1) % 4), alpha, beta, depth - 1, agentType))
+            if v >= beta:
+                return v
+            alpha = max(alpha, v)
+        return v
+
+    def minValue(self, gameState, agentIndex, alpha, beta, depth, agentType):
+        v = float('inf')
+        past_dist = self.getMazeDistance(gameState.getAgentPosition(self.index), gameState.getAgentPosition(agentIndex))
+        for a in gameState.getLegalActions(agentIndex):
+            s = gameState.generateSuccessor(agentIndex, a)
+            if self.getMazeDistance(s.getAgentPosition(self.index), gameState.getAgentPosition(self.index)) >= 2 and s.getAgentPosition(self.index) == s.getInitialAgentPosition(self.index):
+                return -float('inf')
+            if self.getMazeDistance(s.getAgentPosition(self.index),
+                                    s.getAgentPosition(agentIndex)) < past_dist or self.getMazeDistance(s.getAgentPosition(self.index),
+                                                                                                        s.getAgentPosition(agentIndex)) <= 2:
+                v = min(v, self.minMaxValue(s, ((agentIndex + 1) % 4), alpha, beta, depth - 1, agentType))
+                if v <= alpha:
+                    return v
+                beta = min(beta, v)
+        return v
+
 
 
 
@@ -589,6 +636,21 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
                     survive_moves -= 1
             if survive_moves == 0:
                 return Directions.STOP
+
+        # ## Min-Max needed
+        # if self.disToNearestGhost(gameState) <=5 and agentType == "offence":
+        #     bestScore, alpha = -float('inf'), -float('inf')
+        #     action = None
+        #     for a in actions:
+        #         score = self.minMaxValue(gameState.generateSuccessor(self.index, a), self.index,
+        #                                  alpha, bestScore, 4, agentType)
+        #         print score,a
+        #         if score >= bestScore:
+        #             bestScore = score
+        #             action = a
+        #         if score > alpha:
+        #             alpha = score
+        #     return action
 
         maxQ = -float("inf")
         maxQaction = None
@@ -696,10 +758,10 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         agentType = 'offence'
 
         # Predict the location where the enemy will arrive
-        # if myPos in self.boundary:
-        #     self.arrive = True
-        # if self.arrive == False and self.waitTime > 2:
-        #     agentType = 'move'
+        if myPos in self.boundary:
+            self.arrive = True
+        if self.arrive == False and self.waitTime > 2:
+            agentType = 'move'
 
         # the begining 40 steps won't attack
         self.waitTime -= 1
