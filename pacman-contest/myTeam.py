@@ -124,8 +124,6 @@ class ReflexCaptureAgent(CaptureAgent):
 
         if len(oldCapsule) > len(capsule): return True
         else:
-            print "~~~~~~~~~~~~~~~~~~~~~TOWRADS CPUSLE?????????????????????????"
-            print self.disToNearestCapsule(previous) - self.disToNearestCapsule(gameState) > 0
             return self.disToNearestCapsule(previous) - self.disToNearestCapsule(gameState) > 0
 
 
@@ -176,7 +174,6 @@ class ReflexCaptureAgent(CaptureAgent):
                 enemies.append(enemyState)
 
         if len(enemies) > 0:
-            # print "FFFFFFFFFFFFFFFFFFFF Length of enemies > 0"
             toEnemies = []
             for e in enemies:
                 enemyPos = e.getPosition()
@@ -185,23 +182,10 @@ class ReflexCaptureAgent(CaptureAgent):
 
             dis = min(toEnemies)
             features['disToGhost'] = dis
-
-            # if 1< dis <= 3:
-            #     features['disToGhostExtrme'] = dis
             if dis >= 12:
                 features['disToGhost'] = 12
         else:
             features['disToGhost'] = 12
-            # dis = []
-            # for index in self.getOpponents(gameState):
-            #     dis.append(gameState.getAgentDistances()[index])
-            # print "FFFFFFFFFFFFFFFFFFF length of enemies < 0, dis[]:", dis
-            # if min(dis) <= 6 :
-            #     features['disToGhost'] = 6
-            # else:
-            #     features['disToGhost'] = min(dis)
-
-        # features['disToGhost'] = 1/features['disToGhost']
 
         # ---------------------feature 4: dis to closest capsule----------------
         oldCapsule = self.getCapsules(previous)
@@ -272,7 +256,6 @@ class ReflexCaptureAgent(CaptureAgent):
                 features['disToGhost'] = -100
                 return features
             if features['disToGhost'] == 1:
-                # print self.getSuccessor(gameState, action).getAgentState(self.index).isPacman, '*******'
                 if (self.getSuccessor(gameState, action).getAgentState(self.index).isPacman):
                     newWeights['disToGhost'] = -100
 
@@ -288,7 +271,6 @@ class ReflexCaptureAgent(CaptureAgent):
 
         # ---------situation 1, pacman is currying less than 8, try to get more
         if features['oldDots'] <= 7:
-            # print 'mode: less than 8'
             newWeights = {'score': 20.78261354182, 'DisToNearestFood': -7.91094492098, 'disToGhost': 8.17572535548,
                           'disToCapsule': -4.36111562824, 'dots': -0.877933155097,
                           'disToBoundary': -2.94156916302, 'deadends': -10, }
@@ -300,7 +282,6 @@ class ReflexCaptureAgent(CaptureAgent):
                 newWeights['DisToNearestFood'] = -13.21094492098
 
             if features['disToGhost'] == 1:
-                # print self.getSuccessor(gameState, action).getAgentState(self.index).isPacman, '*******'
                 if (self.getSuccessor(gameState, action).getAgentState(self.index).isPacman):
                     newWeights['disToGhost'] = -100
 
@@ -315,36 +296,13 @@ class ReflexCaptureAgent(CaptureAgent):
                           'disToCapsule': -1.36111562824, 'dots': -0.877933155097,
                           'disToBoundary': -6.94156916302, 'deadends': -10}
 
-        # ---------situaion 3, score is more than 4, be careful
-        # if features['disToGhost'] <= 1 and features['score'] > 4:
-        #     newWeights['disToGhost'] = 10  # old value =1
-
-        # if features['disToGhost'] <= 3 and features['isPacman']:
-        #     newWeights['disToCapsule'] = -8
-
-        # if features['timeLeft']<250 and features['dots'] != 0 and features['oldDots'] != 0:
-        #     newWeights['disToBoundary'] = (-3/500)*features['timeLeft']
-
         if features['timeLeft'] < 200 and gameState.getAgentState(self.index).numCarrying != 0:
             newWeights['disToBoundary'] = -15
 
-        # -------situation 4, when the pacman eat capsule and still time remain, try to eat as much as possible
-        # if features['strong'] > 40 and features['dots'] < 8:
-        #     self.offenceMode = 'crazy'
-        #     print 'mode: carzy!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-        #     newWeights['disToGhost'] = 0
-        #     newWeights['deadends'] = 0
-        #     newWeights['disToBoundary'] = 0
-        #     newWeights['disToCapsule'] = 0
-
         # --------situation 5, pacman catching by enemy, dis < 3 and foodcarry > 5, try to eat capsule first
         if features['oldDots'] > 3 and self.disToNearestGhost(gameState) < 3:
-            # print "gameState Distance to ghost ---------------------------", self.disToNearestGhost(gameState)
-            # print 'mode: attack back'
             newWeights['disToCapsule'] = -7.36111562824
 
-        print features
-        print newWeights
         return features * newWeights
 
     # used for get defence feature
@@ -607,9 +565,6 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         Picks among the actions with the highest Q(s,a).
         """
         epislon = 0  # the chanse to randomly choose an action - going to 0 at last
-
-        # print "agent:", self
-        # print "agent index", self.index
         # return MCTsearch(gameState, self, depth=5)
 
         """
@@ -644,7 +599,6 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         #     for a in actions:
         #         score = self.minMaxValue(gameState.generateSuccessor(self.index, a), self.index,
         #                                  alpha, bestScore, 4, agentType)
-        #         print score,a
         #         if score >= bestScore:
         #             bestScore = score
         #             action = a
@@ -659,14 +613,11 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
             qval = self.evaluate(gameState, action, agentType)
             # qval = self.evl2(gameState, action)
             # if self.offenceMode == 'crazy':
-            print "action", action
-            print qval
             if qval >= maxQ:
                 maxQ = qval
                 maxQaction = action
 
         # self.updateWeights(gameState, maxQaction)
-        print "====================================]=================so i choose:", maxQaction
 
         return maxQaction
 
@@ -720,10 +671,8 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     #     q = self.evl2(gameState, Directions.STOP)
     #
     #     for f in features:
-    #         print "feature and weight:", f, features[f]
     #
     #         self.weights[f] += alpha * (reward + discount * maxQ - q) * features[f]
-    #         print f, self.weights[f]
 
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
@@ -797,12 +746,9 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         maxQaction = None
         for action in actions:
             qval = self.evaluate(gameState, action, agentType)
-            # print "action", action
-            # print qval
             if qval >= maxQ:
                 maxQ = qval
                 maxQaction = action
-        # print "**********8so i choose:", maxQaction, '*******************'
         return maxQaction
 
 
@@ -868,7 +814,6 @@ def getDeadEnds(gameState, isRed):
                         elif len(nextNeighbor) == 1:
                             deadEnds[(i, j), direction] = depth
 
-    # print "old deadends:", deadEnds
     hasNew = True
     while hasNew:
         hasNew = False
@@ -887,7 +832,6 @@ def getDeadEnds(gameState, isRed):
             waystodeadend = []
             for neighbor in neighbors[(i, j)]:
                 if ((i, j), neighbor) not in deadEnds:  # i,j pointing at non-deadend directions
-                    # print "adds to ways to deadend:",i, j, neighbor
                     waystodeadend.append(nextStep((i, j), neighbor))  # append the nextstep and reverse dir
 
             if len(waystodeadend) == 1:
@@ -896,7 +840,7 @@ def getDeadEnds(gameState, isRed):
                     hasNew = True
                     newDepth = 1 + deadEnd_coords[(i, j)]
                     deadEnds[(x, y), direction] = newDepth
-                    # print "new found:", x, y, direction, newDepth
+
 
                     hasAnotherNew = True
                     while hasAnotherNew:
@@ -912,9 +856,6 @@ def getDeadEnds(gameState, isRed):
                                 hasAnotherNew = True
                                 newDepth += 1
                                 deadEnds[(x, y), direction] = newDepth
-                                # print "ANOTHER new found:", x, y, direction, newDepth
-
-    # print "new deadends", deadEnds
 
     if isRed:
         cX = (gameState.data.layout.width - 2) / 2
@@ -948,22 +889,13 @@ class MCTree:
             self.depth = ancestor.depth + 1
 
     def __str__(self):
-        # print "Depth:", self.depth, "\nSubtrees:", len(self.subtrees), \
-        #     "\nVisited:", str(self.visited), "\nScore:", str(self.score)
         return ""
 
     def expand(self):
-        # print "Expanding..."
         if len(self.subtrees) == 0:
             for action in self.gameState.getLegalActions(self.agentindex):
                 self.subtrees[action] = MCTree(self.gameState.generateSuccessor(self.agentindex, action), self,
                                                self.agent)
-            # print "expanded tree:", self
-            # self.subtreesCounter[action] = 0
-            # print "Expanded"
-        # else:
-        # print "No expand"
-        # else:
 
 #     def tree_policy(self):
 #         actions = self.gameState.getLegalActions(self.agentindex)
