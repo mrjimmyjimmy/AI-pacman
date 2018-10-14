@@ -333,7 +333,7 @@ class ReflexCaptureAgent(CaptureAgent):
         #     newWeights['disToBoundary'] = (-3/500)*features['timeLeft']
 
         if features['timeLeft'] < 200 and gameState.getAgentState(self.index).numCarrying != 0:
-            newWeights['disToBoundary'] = -10
+            newWeights['disToBoundary'] = -15
 
         # -------situation 4, when the pacman eat capsule and still time remain, try to eat as much as possible
         # if features['strong'] > 40 and features['dots'] < 8:
@@ -625,7 +625,6 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
         capsule = self.getCapsules(nextState)
         if len(capsule) and capsule[0] == (dx, dy):
             reward += 10
-
         if disToGhost <= 2:
             reward += -20 + dots * -2
 
