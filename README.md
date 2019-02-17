@@ -8,3 +8,5 @@ Please follow the instructions in LMS.
 
 Hope you enjoy this project!
 
+The final result link https://people.eng.unimelb.edu.au/nlipovetzky/comp90054tournament/results_2018-10-15-00-24/results.html
+
